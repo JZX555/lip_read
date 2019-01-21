@@ -11,7 +11,7 @@
 
 import tensorflow as tf
 import model_helper
-import data_sentence_helper
+from data_sentence_helper import SentenceHelper
 
 # from tensorflow.contrib import autograph
 
@@ -129,9 +129,6 @@ class RNNcoder(tf.keras.Model):
         else:
             embedding_x = model_helper.time_major_helper(X)
         time_step = X.shape[1].value
-        print(time_step)
-        if time_step is None:
-            time_step = 1
         cell = hidden
         cell_hidden = []
         if self.bw:
@@ -290,12 +287,18 @@ class BabelTowerFactory():
         print("build model")
 
     def _get_data(self, source_data_path, tgt_data_path, batch_size):
-        dataset, src_vocabulary, tgt_vocabulary, src_ids2word, tgt_ids2word = data_sentence_helper.prepare_data(
+        sentenceHelper = SentenceHelper(
             source_data_path, tgt_data_path, batch_size=batch_size)
+        # dataset, src_vocabulary, tgt_vocabulary, src_ids2word, tgt_ids2word = data_sentence_helper.prepare_data(
+        #     source_data_path, tgt_data_path, batch_size=batch_size)
+        # self.src_vocabulary_size = len(src_vocabulary)
+        # self.tgt_vocabulary_size = len(tgt_vocabulary)
+        # return dataset, (src_vocabulary, src_ids2word), (tgt_vocabulary,
+        #                                                  tgt_ids2word)
+        src_vocabulary, tgt_vocabulary, src_ids2word, tgt_ids2word = sentenceHelper.prepare_vocabulary()
         self.src_vocabulary_size = len(src_vocabulary)
         self.tgt_vocabulary_size = len(tgt_vocabulary)
-        return dataset, (src_vocabulary, src_ids2word), (tgt_vocabulary,
-                                                         tgt_ids2word)
+        return sentenceHelper
 
     def mini_model(self, batch=4):
         """Short summary.
@@ -307,20 +310,15 @@ class BabelTowerFactory():
             model dataset, (src_vocabulary,src_ids2word), (tgt_vocabulary,tgt_ids2word)
 
         """
-        dataset, (src_vocabulary,
-                  src_ids2word), (tgt_vocabulary,
-                                  tgt_ids2word) = self._get_data(
-                                      self.src_data_path, self.tgt_data_path,
-                                      batch)
+        sentenceHelper = self._get_data(self.src_data_path, self.tgt_data_path,
+                                        batch)
         return BabelTower(
             src_vocabulary_size=self.src_vocabulary_size,
             tgt_vocabulary_size=self.tgt_vocabulary_size,
             batch_size=batch,
             unit_num=4,
             embedding_size=4,
-            eager=self.eager), dataset, (src_vocabulary,
-                                         src_ids2word), (tgt_vocabulary,
-                                                         tgt_ids2word)
+            eager=self.eager), sentenceHelper
 
     def small_model(self, batch=16, unit_num=16, embedding_size=16):
         """Short summary.
@@ -332,23 +330,17 @@ class BabelTowerFactory():
             model dataset, (src_vocabulary,src_ids2word), (tgt_vocabulary,tgt_ids2word)
 
         """
-        dataset, (src_vocabulary,
-                  src_ids2word), (tgt_vocabulary,
-                                  tgt_ids2word) = self._get_data(
-                                      self.src_data_path, self.tgt_data_path,
-                                      batch)
-
+        sentenceHelper = self._get_data(self.src_data_path, self.tgt_data_path,
+                                        batch)
         return BabelTower(
             src_vocabulary_size=self.src_vocabulary_size,
             tgt_vocabulary_size=self.tgt_vocabulary_size,
             batch_size=batch,
             unit_num=unit_num,
             embedding_size=embedding_size,
-            eager=self.eager), dataset, (src_vocabulary,
-                                         src_ids2word), (tgt_vocabulary,
-                                                         tgt_ids2word)
+            eager=self.eager), sentenceHelper
 
-    def full_model(self):
+    def large_model(self, batch_size=32, unit_num=128, embedding_size=128):
         """Short summary.
             A full model is used to train final model.
         Args:
@@ -358,18 +350,12 @@ class BabelTowerFactory():
             model dataset, (src_vocabulary,src_ids2word), (tgt_vocabulary,tgt_ids2word)
 
         """
-
-        dataset, (src_vocabulary,
-                  src_ids2word), (tgt_vocabulary,
-                                  tgt_ids2word) = self._get_data(
-                                      self.src_data_path, self.tgt_data_path,
-                                      32)
+        sentenceHelper = self._get_data(self.src_data_path, self.tgt_data_path,
+                                        batch_size)
         return BabelTower(
             src_vocabulary_size=self.src_vocabulary_size,
             tgt_vocabulary_size=self.tgt_vocabulary_size,
-            batch_size=32,
-            unit_num=128,
-            embedding_size=128,
-            eager=self.eager), dataset, (src_vocabulary,
-                                         src_ids2word), (tgt_vocabulary,
-                                                         tgt_ids2word)
+            batch_size=batch_size,
+            unit_num=unit_num,
+            embedding_size=embedding_size,
+            eager=self.eager), sentenceHelper
