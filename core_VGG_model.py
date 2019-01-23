@@ -4,18 +4,18 @@ import data_image_helper
 
 import tensorflow.contrib as tf_contrib
 
-#tf_contrib.eager.enable_eager_execution()
+# tf_contrib.eager.enable_eager_execution()
 
-
-img = tf.zeros(dtype = tf.float32, shape = (44, 10, 109, 109, 5))
 
 class CNNcoder(tf.keras.Model):
     def __init__(self, 
-                 time_step,
-                 embed_size = 512):
+                 batch_size = 64,
+                 embed_size = 512,
+                 eager = False):
         super(CNNcoder, self).__init__()
-        self.time_step = time_step
+        self.batch_size = batch_size
         self.embed_size = embed_size
+        self.eager = eager
 
         self.cnn1 = tf.keras.layers.Conv2D(filters = 96, kernel_size = 3, strides = (1, 1), padding = 'same')
         self.cnn2 = tf.keras.layers.Conv2D(filters = 256, kernel_size = 3, strides = (2, 2), padding = 'same')
@@ -40,31 +40,33 @@ class CNNcoder(tf.keras.Model):
         c_o5 = self.cnn5(c_o4)
         p_o5 = self.pool5(c_o5)
         c_o6 = self.cnn6(p_o5)
+        c_o6 = tf.reshape(c_o6, shape = [self.batch_size, -1])
         f_o = self.fc6(c_o6)
         
         return f_o
 
     def call(self, inputs):
-        imgs = inputs
+        (imgs, lengths) = inputs
+        if(self.eager):
+            time_step = np.max(lengths)
+        else:
+            time_step = np.max(lengths.eval())
         embeded =[]
 
-        for i in range(self.time_step):
+        for i in range(time_step):
             embeded.append(self.build_Graph(imgs[:, i, :, :, :]))
             
-        embeded = tf.transpose(embeded, perm = [1, 0, 2, 3, 4])
-        embeded = tf.reshape(embeded, shape = [-1, self.time_step, self.embed_size])
+        embeded = tf.transpose(embeded, perm = [1, 0, 2])
         return embeded
 
 class LSTMcoder(tf.keras.Model):
     def __init__(self, 
                  batch_sz, 
-                 num_units, 
-                 time_step,
+                 num_units,
                  backforward = False):
         super(LSTMcoder, self).__init__()
         self.batch_sz = batch_sz
         self.num_units = num_units
-        self.time_step = time_step
         self.bf = backforward
         self.lstm1 = tf.keras.layers.LSTM(units = self.num_units, 
                                           return_sequences = True, 
@@ -86,7 +88,7 @@ class LSTMcoder(tf.keras.Model):
         if(not self.bf):
             x = tf.reverse_sequence(x, seq_lengths, seq_axis = 1, batch_axis = 0)
 
-
+        
         out1, h1, state1 = self.lstm1(x,  initial_state = self.initial_hidden_state())
         out2, h2, state2 = self.lstm2(out1, initial_state = self.initial_hidden_state())
         out3, h3, state3 = self.lstm3(out2, initial_state = self.initial_hidden_state())
@@ -127,33 +129,32 @@ class LSTMcoder(tf.keras.Model):
 class VGGTower(tf.keras.Model):
     def __init__(self, 
                  batch_size = 64,
-                 time_step = 10,
                  embed_size = 512,
                  num_units = 512,
-                 backforward = False):
+                 backforward = False,
+                 eager = False):
         super(VGGTower, self).__init__()
         self.batch_size = batch_size
-        self.time_step = time_step
         self.embed_size = embed_size
         self.num_units = num_units
         self.bf = backforward
+        self.eager = eager
 
         self.embeded = None
         self.final_out = None
         self.final_hidden = None
         self.final_state = None
 
-        self.encoder = CNNcoder(time_step = self.time_step,
-                                embed_size = self.embed_size)
+        self.encoder = CNNcoder(batch_size = self.batch_size,
+                                embed_size = self.embed_size,
+                                eager = self.eager)
         self.fw_decoder = LSTMcoder(batch_sz = self.batch_size,
                                     num_units = self.num_units,
-                                    time_step = self.time_step,
                                     backforward = False)
 
         if(self.bf):
             self.bw_decoder = LSTMcoder(batch_sz = self.batch_size,
                                         num_units = self.num_units,
-                                        time_step = self.time_step,
                                         backforward = True)
             self.output_size = self.num_units * 2
 
@@ -164,21 +165,23 @@ class VGGTower(tf.keras.Model):
     
     def call(self, inputs):
         """
+        inputs:
+            images: a batch of mouth images
         return:
             final_out: [batch_size, time_step, embed_size]
             final_hidden: [batch_size, embed_size]
         """
-        (images) = inputs
-        self.embeded = self.encoder(images)
-        fw_o1, fw_o2, fw_o3, fw_h1, fw_h2, fw_h3, fw_s1, fw_s2, fw_s3 = self.fw_decoder((self.embeded, 
-                                                                                        [self.time_step] * self.batch_size))
+        (images, img_length) = inputs
+        encoder_input = (images, img_length)
+        self.embeded = self.encoder(encoder_input)
+        decoder_input = (self.embeded, img_length)
+
+        fw_o1, fw_o2, fw_o3, fw_h1, fw_h2, fw_h3, fw_s1, fw_s2, fw_s3 = self.fw_decoder(decoder_input)
 
         if(self.bf):
-            bw_o1, bw_o2, bw_o3, bw_h1, bw_h2, bw_h3, bw_s1, bw_s2, bw_s3 = self.bw_decoder((self.embeded, 
-                                                                                            [self.time_step] * self.batch_size))
-            self.final_out = [tf.concat((fw_o1, bw_o1), -1),
-                              tf.concat((fw_o2, bw_o2), -1),
-                              tf.concat((fw_o3, bw_o3), -1)]
+            bw_o1, bw_o2, bw_o3, bw_h1, bw_h2, bw_h3, bw_s1, bw_s2, bw_s3 = self.bw_decoder(decoder_input)
+
+            self.final_out = tf.concat((fw_o3, bw_o3), -1)
 
             self.final_hidden = [tf.concat((fw_h1, bw_h1), -1),
                                  tf.concat((fw_h2, bw_h2), -1),
@@ -188,7 +191,7 @@ class VGGTower(tf.keras.Model):
                                 tf.concat((fw_s2, bw_s2), -1),
                                 tf.concat((fw_s3, bw_s3), -1)]
         else:
-            self.final_out = [fw_o1, fw_o2, fw_o3]
+            self.final_out = fw_o3
             self.final_hidden = [fw_h1, fw_h2, fw_h3]
             self.final_state = [fw_s1, fw_s2, fw_s3]
 
@@ -226,7 +229,7 @@ class VGGTowerFactory(tf.keras.Model):
 
     def get_data(self, detector_path, data_path, batch_size, time_step):
         reader = data_image_helper.data_image_helper(detector_path)
-        dataset, images = reader.prepare_data(path = data_path, batch_size = batch_size, time_step = time_step)
+        dataset, images = reader.prepare_data(paths = data_path, batch_size = batch_size)
         return dataset, images
 
     def mini_model(self, batch_size = 4):
@@ -242,7 +245,6 @@ class VGGTowerFactory(tf.keras.Model):
                                         batch_size = self.batch_size,
                                         time_step = self.time_step) 
         return VGGTower(batch_size = batch_size,
-                        time_step = self.time_step,
                         embed_size = 4,
                         num_units = 4,
                         backforward = self.bf), dataset, images
@@ -262,7 +264,6 @@ class VGGTowerFactory(tf.keras.Model):
                                         batch_size = self.batch_size,
                                         time_step = self.time_step) 
         return VGGTower(batch_size = batch_size,
-                        time_step = self.time_step,
                         embed_size = embed_size,
                         num_units = num_units,
                         backforward = self.bf), dataset, images
@@ -280,15 +281,20 @@ class VGGTowerFactory(tf.keras.Model):
                                         batch_size = self.batch_size,
                                         time_step = self.time_step) 
         return VGGTower(batch_size = self.batch_size,
-                        time_step = self.time_step,
                         embed_size = self.embed_size,
                         num_units = self.num_units,
                         backforward = self.bf), dataset, images
 
-v = VGGTower(batch_size = 44, time_step = 10, num_units = 512, backforward = True)
+# this is used to test VGGTower
+if __name__ == '__main__':
+    img = tf.zeros(dtype = tf.float32, shape = (44, 10, 120, 120, 5))
+    length = tf.constant([10, 9] * 22)
+    v = VGGTower(batch_size = 44, num_units = 512, eager = True, backforward = False)
 
-o, h= v(img)
-s = v.get_state()
-print(o[2].shape)
-print(h[2].shape)
-print(s[2].shape)
+    inputs = (img, length)
+
+    o, h= v(inputs)
+    s = v.get_state()
+    print(o.shape)
+    print(h[2].shape)
+    print(s[2].shape)
