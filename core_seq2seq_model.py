@@ -128,25 +128,42 @@ class RNNcoder(tf.keras.Model):
             embedding_x = model_helper.time_major_helper(embedded)
         else:
             embedding_x = model_helper.time_major_helper(X)
-        time_step = X.shape[1].value
-        cell = hidden
-        cell_hidden = []
+        self.cell = hidden
+        self.cell_hidden = []
         if self.bw:
             embedding_x = tf.reverse_sequence(
                 embedding_x, sequence_length, seq_axis=0, batch_axis=1)
-        for t in range(0, time_step):
-            if time_step > self.max_sequence:
-                break
-            attention_context = 0
-            if attention_hidden != 0:
-                attention_context, attention_score = self._attention(
-                    time_step, hidden, attention_hidden)
-            cell = self._gated_combination(embedding_x[t], cell,
-                                           attention_context)
-            cell_hidden.append(cell)
-        cell_hidden = tf.convert_to_tensor(cell_hidden)
-        cell_hidden = tf.transpose(cell_hidden, (1, 0, 2))
-        return (cell_hidden, cell)
+        t = 0
+        try:
+            while t < self.max_sequence:
+                # if time_step > self.max_sequence:
+                #     break
+                attention_context = 0
+                if attention_hidden != 0:
+                    attention_context, attention_score = self._attention(
+                        t, hidden, attention_hidden)
+                self.cell = self._gated_combination(embedding_x[t], self.cell,
+                                                    attention_context)
+                self.cell_hidden.append(self.cell)
+                t += 1
+        except Exception:
+            pass
+        # conditon = lambda t: tf.less(t, time_step)
+        # def hidden_builder(t):
+        #     print(t)
+        #     attention_context = 0
+        #     if attention_hidden != 0:
+        #         attention_context, attention_score = self._attention(
+        #             time_step, hidden, attention_hidden)
+        #     self.cell = self._gated_combination(embedding_x[t], self.cell,
+        #                                         attention_context)
+        #     self.cell_hidden.append(self.cell)
+        #     return t + 1
+        # t = 0
+        # tf.while_loop(conditon, hidden_builder, [t])
+        self.cell_hidden = tf.convert_to_tensor(self.cell_hidden)
+        self.cell_hidden = tf.transpose(self.cell_hidden, (1, 0, 2))
+        return (self.cell_hidden, self.cell)
 
 
 class BabelTower(tf.keras.Model):
@@ -214,13 +231,19 @@ class BabelTower(tf.keras.Model):
         self.project = tf.keras.layers.Dense(self.tgt_vocabulary_size)
         self.logit = tf.keras.layers.Softmax(-1)
 
-    # @autograph.convert()
     def call(self, inputs):
         (src_input, tgt_input, src_length, tgt_length) = inputs
+        # try:
+        #     src_time_step = src_time_step.eval()
+        #     tgt_time_step = tgt_time_step.eval()
+        # except Exception:
+        #     src_time_step = 1
+        #     tgt_time_step = 1
         fw_inputs = (src_input, src_length, self.fw_final, 0)
         fw_encoder_hidden, fw_final = self.fw_encoder(fw_inputs)
         if self.bw:
-            bw_inputs = (src_input, src_length, self.bw_final, 0)
+            bw_inputs = (src_input, src_length, self.bw_final,
+                         0)
             bw_encoder_hidden, bw_final = self.bw_encoder(bw_inputs)
             self.encoder_hidden = tf.concat(
                 (fw_encoder_hidden, bw_encoder_hidden), -1)
@@ -295,7 +318,8 @@ class BabelTowerFactory():
         # self.tgt_vocabulary_size = len(tgt_vocabulary)
         # return dataset, (src_vocabulary, src_ids2word), (tgt_vocabulary,
         #                                                  tgt_ids2word)
-        src_vocabulary, tgt_vocabulary, src_ids2word, tgt_ids2word = sentenceHelper.prepare_vocabulary()
+        src_vocabulary, tgt_vocabulary, src_ids2word, tgt_ids2word = sentenceHelper.prepare_vocabulary(
+        )
         self.src_vocabulary_size = len(src_vocabulary)
         self.tgt_vocabulary_size = len(tgt_vocabulary)
         return sentenceHelper
