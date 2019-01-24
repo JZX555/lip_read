@@ -87,7 +87,10 @@ class SentenceHelper():
         Returns:
             type: Description of returned object.
         """
-        npa = np.array([npa.decode("utf-8")])
+        if isinstance(npa, str):
+            npa = np.array([npa])
+        else:
+            npa = np.array([npa.decode("utf-8")])
         for i in range(0, len(npa)):
             w = npa[i].lower().strip()
             w = re.sub("([?.!,¿])", r" \1 ", w)
@@ -193,7 +196,7 @@ class SentenceHelper():
             idx2word[index] = word
         return vocabulary, idx2word
 
-    def prepare_data(self):
+    def post_process(self):
         # src_dataset, src_word2idx, src_idx2word = self.create_dataset(
         #     self.source_data_path)
         src_dataset, src_vocabulary, src_ids2word = self.create_dataset(
@@ -231,6 +234,10 @@ class SentenceHelper():
         #         EOS_ID,
         #         0,
         #         0)))  # size(target) -- unused
+        return source_target_dataset
+
+    def prepare_data(self):
+        source_target_dataset = self.post_process()
         batched_dataset = source_target_dataset.padded_batch(
             self.batch_size,
             padded_shapes=(
