@@ -42,7 +42,6 @@ class data_image_helper:
                 第一个参数ret的值为True或False，代表有没有读到图片
                 第二个参数是frame，是当前截取一帧的图片
             '''
-            print(img)
             if ret == False:
                 break
             
@@ -82,16 +81,23 @@ class data_image_helper:
                     if len(faceRects_mouth) > 0:
                         for faceRect_mouth in faceRects_mouth:
                             xm1, ym1, wm1, hm2 = faceRect_mouth
+                            cv2.rectangle(img_facehalf_bottom, (int(xm1), int(ym1)), (int(xm1) + int(wm1), int(ym1) + int(hm2)), (0,0, 255), 2, 0)
                             
                             mouth = img_facehalf_bottom[ym1 : (ym1 + hm2), xm1 : (xm1 + wm1)]
                             mouth = cv2.resize(mouth, size, interpolation = cv2.INTER_CUBIC)
                             
                             images.append(mouth)
                             cnt += 1
-                            cv2.imshow('video', mouth)
+                            # cv2.imshow('video', mouth)
+                            # if cnt % 10 == 0:
+                            #     cv2.imwrite(str(cnt) + 'xx.jpg', mouth)
     
             if(key == ord('q')):
                 break
+        
+        cap.release()
+        cv2.destroyAllWindows()
+        
         return images, cnt
 
     # def prepare_data(self, 
@@ -139,8 +145,8 @@ class data_image_helper:
             length.append(cnt)
         
         
-        # DataSet = DataSet / 255.0
-        # DataSet = DataSet.astype(np.float32)
+        dataset = np.array(dataset) / 255.0
+        dataset = dataset.astype(np.float32)
 
         batch_dataset = tf.data.Dataset.from_tensor_slices((dataset, length))
         batch_dataset = batch_dataset.padded_batch(
@@ -153,9 +159,9 @@ class data_image_helper:
         return batch_dataset, dataset
     
 if __name__ == '__main__':
-    tf_contrib.eager.enable_eager_execution()
+    #tf_contrib.eager.enable_eager_execution()
     helper = data_image_helper(detector = 'C:/Users/50568/Desktop/我/Macheaning Cafe/tensorflow_prototype/Lip_Reading/cascades/')
-    b, d = helper.prepare_data(paths = ['C:/Users/50568/Desktop/1.avi'], batch_size = 64)
+    b, d = helper.prepare_data(paths = ['D:/lip_data/ABOUT/train/ABOUT_00003.mp4'], batch_size = 64)
     print(b)
     for (i,(x, l)) in enumerate(b):
         print(l)

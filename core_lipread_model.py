@@ -61,7 +61,7 @@ class Daedalus(tf.keras.Model):
                             embedding_matrix = False,
                             eager=True) 
         self.project = tf.keras.layers.Dense(self.tgt_vocabulary_size)
-        self.logit = tf.keras.layers.Softmax(-1)
+        self.logit = tf.keras.layers.Softmax(axis = -1)
 
     def call(self, inputs):
         (src_input, tgt_input, src_length, tgt_length) = inputs
@@ -87,3 +87,30 @@ class Daedalus(tf.keras.Model):
     
     def get_states(self):
             return self.decoder3_hidden, self.decoder3_final
+
+class DaedalusFactory(tf.keras.Model):
+    def __init__(self,
+                 src_vocabulary_size,
+                 tgt_vocabulary_size,
+                 batch_size = 64,
+                 embed_size = 512,
+                 num_units = 512,
+                 backforward = False,
+                 eager = False):
+        super(DaedalusFactory, self).__init__()
+        self.src_vocabulary_size = src_vocabulary_size
+        self.tgt_vocabulary_size = tgt_vocabulary_size
+        self.batch_size = batch_size
+        self.embed_size = embed_size
+        self.num_units = num_units
+        self.bf = backforward
+        self.eager = eager
+
+    def mini_model(self):
+        pass
+
+    def small_model(self):
+        pass
+
+    def full_model(self):
+        pass
