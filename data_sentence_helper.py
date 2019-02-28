@@ -42,7 +42,9 @@ class SentenceHelper():
                  source_data_path,
                  target_data_path,
                  batch_size=32,
+                 shuffle=100,
                  num_sample=-1,
+                 max_length=50,
                  split_token='\n'):
         """Short summary.
 
@@ -68,6 +70,8 @@ class SentenceHelper():
         self.UNK_ID = 0
         self.SOS_ID = 1
         self.EOS_ID = 2
+        self.shuffle = shuffle
+        self.max_length = max_length
 
     # SPLIT_TOKEN = '\n'
     # UNK = "<unk>"
@@ -91,6 +95,9 @@ class SentenceHelper():
             npa = np.array([npa])
         else:
             npa = np.array([npa.decode("utf-8")])
+            # npa = u' '.join(npa).encode('utf-8').strip()
+            # import pdb; pdb.set_trace()
+            # npa = np.array([npa])
         for i in range(0, len(npa)):
             w = npa[i].lower().strip()
             w = re.sub("([?.!,¿])", r" \1 ", w)
@@ -112,14 +119,16 @@ class SentenceHelper():
             type: Description of returned object.
 
         """
-
-        npa = np.array(npa)
-        vocabulary = json.loads(vocabulary)
-        for i in range(0, len(npa)):
-            try:
-                npa[i] = vocabulary[npa[i].decode("utf-8")]
-            except Exception:
-                npa[i] = self.UNK_ID
+        try:
+            npa = np.array(npa)
+            vocabulary = json.loads(vocabulary)
+            for i in range(0, len(npa)):
+                try:
+                    npa[i] = vocabulary[npa[i].decode("utf-8")]
+                except Exception:
+                    npa[i] = self.UNK_ID
+        except Exception:
+            print(npa)
         return npa.astype('int32')
 
     def create_dataset(self, data_path):
@@ -131,12 +140,24 @@ class SentenceHelper():
         # word2idx, idx2word = self.word_index(data_path)
         vocabulary, idx2word = self.word_index(data_path)
         json_vocabulary = json.dumps(vocabulary)
+        with tf.gfile.GFile(data_path, "r") as f:
+            self.data_counter = len(f.readlines())
+            f.close()
         dataset = tf.data.TextLineDataset(data_path)
         dataset = dataset.map(
-            lambda string: tf.py_func(self.preprocess_sentence, [string], string.dtype)
+            lambda string: tf.py_func(lambda string: string.lower(), [string], tf.string, stateful=False)
         )
         dataset = dataset.map(
-            lambda string: tf.string_split(string, self.split_token).values)
+            lambda string: tf.strings.regex_replace(tf.strings.strip(string), "([?.!,¿])", r" \1 ")
+        )
+        dataset = dataset.map(
+            lambda string: tf.strings.regex_replace(string, '[" "]+', self.split_token)
+        )
+        dataset = dataset.map(
+            lambda string: tf.strings.regex_replace(string, "[^a-zA-Z?.!,¿]+", self.split_token)
+        )
+        dataset = dataset.map(
+            lambda string: tf.string_split([string], self.split_token).values)
         dataset = dataset.map(
             lambda string: tf.py_func(self.lookup, [string, json_vocabulary], tf.int32)
         )
@@ -196,7 +217,7 @@ class SentenceHelper():
             idx2word[index] = word
         return vocabulary, idx2word
 
-    def post_process(self):
+    def post_process(self, validation=0.15, test=0.15):
         # src_dataset, src_word2idx, src_idx2word = self.create_dataset(
         #     self.source_data_path)
         src_dataset, src_vocabulary, src_ids2word = self.create_dataset(
@@ -206,6 +227,8 @@ class SentenceHelper():
         tgt_dataset, tgt_vocabulary, tgt_ids2word = self.create_dataset(
             self.target_data_path)
         source_target_dataset = tf.data.Dataset.zip((src_dataset, tgt_dataset))
+        source_target_dataset = source_target_dataset.map(
+            lambda src, tgt: (src[:self.max_length], tgt[:self.max_length]))
         source_target_dataset = source_target_dataset.map(
             lambda src, tgt:
                 (src, tf.concat(([self.SOS_ID], tgt), 0), tf.concat((tgt, [self.EOS_ID]), 0)))
@@ -217,6 +240,17 @@ class SentenceHelper():
         source_target_dataset = source_target_dataset.map(
             lambda src, tgt_in, tgt_out:
                 ((src, tgt_in, tf.size(src), tf.size(tgt_in)), tgt_out))
+        source_target_dataset.shuffle(1000000)
+        print('Total data {0}'.format(self.data_counter))
+        val_size = int(validation * self.data_counter)
+        test_size = int(test * self.data_counter)
+        # train_size = self.data_counter - val_size - test_size
+        # source_target_dataset = source_target_dataset.shuffle(self.shuffle)
+        val_dataset = source_target_dataset.take(val_size)
+        test_dataset = source_target_dataset.skip(val_size)
+        test_dataset = test_dataset.take(test_size)
+        train_dataset = test_dataset.skip(test_size)
+        # test_dataset = source_target_dataset.skip(train_size)
         # source_target_dataset = source_target_dataset.map(
         #     lambda src, tgt: (src, tgt, tf.size(src), tf.size(tgt)))
         # batched_dataset = source_target_dataset.padded_batch(
@@ -234,11 +268,10 @@ class SentenceHelper():
         #         EOS_ID,
         #         0,
         #         0)))  # size(target) -- unused
-        return source_target_dataset
+        return train_dataset, val_dataset, test_dataset
 
-    def prepare_data(self):
-        source_target_dataset = self.post_process()
-        batched_dataset = source_target_dataset.padded_batch(
+    def padding(self, dataset):
+        batched_dataset = dataset.padded_batch(
             self.batch_size,
             padded_shapes=(
                 (
@@ -257,10 +290,19 @@ class SentenceHelper():
                     EOS_ID,  # target vectors padded on the right with tgt_eos_id
                     0,
                     0),
-                self.EOS_ID))  # size(target) -- unused
+                self.EOS_ID),
+            drop_remainder=True)  # size(target) -- unused
+        return batched_dataset
+
+    def prepare_data(self):
+        train_dataset, val_dataset, test_dataset = self.post_process()
+        train_dataset = self.padding(train_dataset)
+        val_dataset = self.padding(val_dataset)
+        test_dataset = self.padding(test_dataset)
+
         # 1-tf.cast(tf.equal(src, self.EOS_ID), tf.int32)
         # batched_dataset = batched_dataset.app
-        return batched_dataset
+        return train_dataset, val_dataset, test_dataset
 
     def prepare_vocabulary(self):
         src_vocabulary, src_ids2word = self.word_index(self.source_data_path)
@@ -284,3 +326,11 @@ class SentenceHelper():
         tgt_output = tf.pad(
             tgt, output_padding, mode='CONSTANT', constant_values=self.EOS_ID)
         return tgt_input, tgt_output
+
+
+DATA_PATH = '/Users/barid/Documents/workspace/batch_data/corpus_fr2eng'
+sentenceHelper = SentenceHelper(
+    DATA_PATH + "/europarl-v7.fr-en.fr",
+    DATA_PATH + "/europarl-v7.fr-en.en",
+    batch_size=16,
+    shuffle=100000)

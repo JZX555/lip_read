@@ -1,385 +1,543 @@
-# encoding=utf8
+# encoder= utf-8
 """
+    Artist:
+        Barid
 
-    artist: Barid Ai
-
-
-    This is a classic nmt model, using seq2seq and attention, based on
-    "Bahdanau, D., Cho, K., & Bengio, Y. (n.d.). NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN AND TRANSLATE.
-    Retrieved from http://cs224d.stanford.edu/papers/nmt.pdf"
+    Seek perfect in imperfection.
 """
-
 import tensorflow as tf
-import model_helper
+from tensorflow.python.keras.utils import tf_utils
+from tensorflow.keras.layers import RNN
 from data_sentence_helper import SentenceHelper
+import model_helper
+from tensorflow.python.ops import array_ops
+from tensorflow.python.layers import core as core_layer
 
-# from tensorflow.contrib import autograph
 
-
-class RNNcoder(tf.keras.Model):
-    """Wrap a new RNN model
-        !!!ATTENTION!!!
-        Data structure must be in [batch, time, embedding], the batch major
-        style,  this model will automaticly change it to time major style
-        for compututional efficiency.
+class AlignAttention(tf.keras.layers.Layer):
+    """
+        batch major
+        context = [b, t, e]
     """
 
-    def __init__(self,
-                 vocabulary_size,
-                 batch_size,
-                 unit_num,
-                 embedding_size,
-                 max_sequence=200,
-                 time_major=True,
-                 backforward=False,
-                 embedding_matrix=True,
-                 eager=True):
-        super(RNNcoder, self).__init__()
-        self.batch_size = batch_size
-        self.unit_num = unit_num
-        self.embedding_size = embedding_size
-        self.max_sequence = max_sequence
-        self.bw = backforward
-        self.time_major = True
-        self.vocabulary_size = vocabulary_size
-        self.embedding_matrix = embedding_matrix
-        self.eager = eager
-        self.embedding_helper = tf.keras.layers.Embedding(
-            self.vocabulary_size, self.embedding_size)
-        self.max_length = 100
-        self.layer_initializer()
+    def __init__(self, unit_num, context=None, name=None, **kwargs):
+        super(AlignAttention, self).__init__(name=name, **kwargs)
+        self.units = unit_num
+        self.context = context
 
-    def layer_initializer(self):
-        # initialize layer
-        self.W_ = tf.keras.layers.Dense(self.unit_num)
-        self.U_ = tf.keras.layers.Dense(self.unit_num)
-        self.C_ = tf.keras.layers.Dense(self.unit_num)
-        self.h_bar_ = tf.keras.layers.Dense(self.unit_num)
-        self.energy_U_ = tf.keras.layers.Dense(self.unit_num)
-        self.energy_W_ = tf.keras.layers.Dense(self.unit_num)
-        self.engery_ = tf.keras.layers.Dense(1)
-
-    def initialize_hidden_state(self):
-        return tf.zeros((self.batch_size, self.unit_num))
-
-    def _sigmid_w_u_c(self, embedding_x, hidden, attention):
-        W = self.W_(embedding_x)
-        U = self.U_(hidden)
-        C = self.C_(attention)
-        sigmid_w_u_c = tf.keras.backend.sigmoid(W + U + C)
-        return sigmid_w_u_c
-
-    def _gated_combination(self, embedding_x, hidden, attention=0):
-        """Short summary.
-        Args:
-            X (type): Description of parameter `X`.
-            hidden_s (type): Description of parameter `hidden_s`.
-            hidden_h (type): Description of parameter `hidden_h`.
-            attention (type): Description of parameter `attention`.
-
-        Returns:
-            type: Description of returned object.
-
-        """
-        if attention == 0:
-            attention = self.initialize_hidden_state()
-        r = self._sigmid_w_u_c(embedding_x, hidden, attention)
-        z = self._sigmid_w_u_c(embedding_x, hidden, attention)
-        h_bar = tf.keras.backend.tanh(embedding_x + self.h_bar_(r * hidden))
-
-        H = (1 - z) * hidden + z * h_bar
-        return H
-
-    def _attention(self, time_step, hidden_base, hidden_context):
-        """Short summary.
-        Implementing the method from mentioned paper,
-        it follows stand attention pipe line:
-            energy -> softmax -> context
-        Args:
-             (type): Description of parameter ``.
-
-        Returns:
-            type: Description of returned object.
-
-        """
-        attention_context = []
-        hidden_context = model_helper.time_major_helper(hidden_context)
-        energy_U = self.energy_U_(hidden_context)
-        energy_W = self.energy_W_(hidden_base)
-        energy = self.engery_(tf.keras.backend.tanh((energy_U + energy_W)))
-        # axis = 0 because it needs weights with respect to time.
-        attention_score = tf.keras.layers.Softmax(axis=0)(energy)
-        attention_score = tf.transpose(energy, [1, 2, 0])
-        hidden_context = tf.transpose(hidden_context, [1, 0, 2])
-        # attention_context = tf.keras.backend.dot(
-        #     attention_score * hidden_context)
-        for b in range(0, self.batch_size):
-            temp = tf.keras.backend.dot(attention_score[b], hidden_context[b])
-            attention_context.append(tf.reshape(temp, [-1]))
-        attention_context = tf.convert_to_tensor(attention_context)
-        return attention_context, attention_score
+    @tf_utils.shape_type_conversion
+    def build(self, input_shape):
+        input_dim = input_shape[-1]
+        # self.batch_size = input_shape[0]
+        # context_dim = self.context.shape[1]
+        # self.input_kernel = self.add_weight(
+        #     name="attention_score_W", shape=[input_dim])
+        # self.context_kernel = self.add_weight(
+        #     name="attention_score_U", shape=[input_dim])
+        # self.score_kernel = self.add_weight(
+        #     name="attention_score_V", shape=[input_dim])
+        # self.attention_score = tf.keras.layers.Softmax()
+        #
+        # self.context = model_helper.time_major_helper(self.context)
+        # self.context = tf.reshape(self.context,
+        #                           [-1, self.batch_size * input_dim])
+        self.W = tf.keras.layers.Dense(input_dim)
+        self.U = tf.keras.layers.Dense(input_dim)
+        self.V = tf.keras.layers.Dense(1)
 
     def call(self, inputs):
-        # embedded = model_helper.embedding_helper(
-        #     X, self.vocabulary_size, self.embedding_size)
-        (X, sequence_length, hidden, attention_hidden) = inputs
-        if self.embedding_matrix:
-            embedded = self.embedding_helper(X)
-            embedding_x = model_helper.time_major_helper(embedded)
-        else:
-            embedding_x = model_helper.time_major_helper(X)
-        self.cell = hidden
-        self.cell_hidden = []
-        if self.bw:
-            embedding_x = tf.reverse_sequence(
-                embedding_x, sequence_length, seq_axis=0, batch_axis=1)
-        t = 0
-        try:
-            while t < self.max_sequence:
-                # if time_step > self.max_sequence:
-                #     break
-                attention_context = 0
-                if attention_hidden != 0:
-                    attention_context, attention_score = self._attention(
-                        t, hidden, attention_hidden)
-                self.cell = self._gated_combination(embedding_x[t], self.cell,
-                                                    attention_context)
-                self.cell_hidden.append(self.cell)
-                t += 1
-        except Exception:
-            pass
-        # conditon = lambda t: tf.less(t, time_step)
-        # def hidden_builder(t):
-        #     print(t)
-        #     attention_context = 0
-        #     if attention_hidden != 0:
-        #         attention_context, attention_score = self._attention(
-        #             time_step, hidden, attention_hidden)
-        #     self.cell = self._gated_combination(embedding_x[t], self.cell,
-        #                                         attention_context)
-        #     self.cell_hidden.append(self.cell)
-        #     return t + 1
-        # t = 0
-        # tf.while_loop(conditon, hidden_builder, [t])
-        self.cell_hidden = tf.convert_to_tensor(self.cell_hidden)
-        self.cell_hidden = tf.transpose(self.cell_hidden, (1, 0, 2))
-        return (self.cell_hidden, self.cell)
+        """
+            Implementing the method from mentioned paper,
+            it follows stand attention pipe line:
+                energy -> softmax -> context
+
+            batch major
+            inputs = [b, v]
+        """
+        if self.context is not None:
+            hidden_with_time_axis = tf.expand_dims(inputs, 1)
+            score = self.V(
+                tf.nn.tanh(
+                    self.W(self.context) + self.U(hidden_with_time_axis)))
+            # attention_score = self.attention_score(score, axis=0)
+            self.attention_weights = tf.nn.softmax(score, axis=1)
+            self.context_vector = self.attention_weights * self.context
+            self.context_vector = tf.reduce_sum(self.context_vector, axis=1)
+            return self.context_vector, self.attention_weights
+
+    @property
+    def get_attention_weight(self):
+        return self.attention_weights
+
+    def set_attenton_context(self, context):
+        self.context = context
 
 
-class BabelTower(tf.keras.Model):
-    """Short summary.
-    the main model
-    Args:
+class AlignCell(tf.keras.layers.Layer):
+    """
+        The new verison of rnn cell is implemented.
+        And I have changed the old core_seq2seq_model to
+        core_seq2seq_model_deprecated,
 
 
-    Attributes:
-        tower_of_babel (type): Description of parameter `tower_of_babel`.
-
+        Acknowledgement:
+        Bahdanau, D., Cho, K., & Bengio, Y. (n.d.).
+        NEURAL MACHINE TRANSLATION BY JOINTLY LEARNING TO ALIGN AND TRANSLATE.
+        Retrieved from http://cs224d.stanford.edu/papers/nmt.pdf
     """
 
+    def __init__(
+            self,
+            # vocabulary_size,
+            # batch_size,
+            units,
+            # embedding_size,
+            attention=False,
+            bias=True,
+            backforward=False,
+            embedding_size=256,
+            projection=0,
+            # embedding_matrix=True,
+            kernel_initializer='glorot_uniform',
+            recurrent_initializer='orthogonal',
+            bias_initializer='zeros',
+            dropout=1,
+            name=None,
+            **kwargs):
+        super(AlignCell, self).__init__(name=name, **kwargs)
+        self.units = units
+        # self.state_size = units
+        # self.output_size = units
+        # self.embedding_size = embedding_size
+        self.use_bias = bias
+        self.attention = attention
+        self.time_major = True
+        self.dropout = min(1., max(0., dropout))
+        # self.vocabulary_size = vocabulary_size
+        # self.embedding_matrix = embedding_matrix
+        # self.embedding_helper = tf.keras.layers.Embedding(
+        #     self.vocabulary_size, self.embedding_size)
+        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
+        self.recurrent_initializer = tf.keras.initializers.get(
+            recurrent_initializer)
+        self.bias_initializer = tf.keras.initializers.get(bias_initializer)
+        self.embedding_size = embedding_size
+        self.projection = projection
+        if self.projection != 0:
+            self.dense_output = tf.keras.layers.Dense(
+                int(self.projection), name='output_dense')
+        else:
+            self.dense_output = tf.keras.layers.Dense(
+                int(self.units), name='output_dense')
+        if self.embedding_size != self.units:
+            self.dense_input = tf.keras.layers.Dense(
+                int(self.units), name='input_dense')
+        self.built = True
+        if self.attention:
+            self.attention_wrapper = AlignAttention(
+                self.units, 0, name='attention')
+        # used to control weights size
+    @tf_utils.shape_type_conversion
+    def build(self, input_shape):
+        input_dim = input_shape[-1]
+        if self.embedding_size != self.units:
+            input_dim = self.units
+        self.batch_size = input_shape[0]
+        self.kernel = self.add_weight(
+            shape=(input_dim, self.units * 3),
+            name='kernel',
+            initializer=self.kernel_initializer)
+        self.recurrent_kernel = self.add_weight(
+            shape=(self.units, self.units * 3),
+            name='recurrent_kernel',
+            initializer=self.recurrent_initializer)
+        # if self.attention_context is not None:
+        #     self.attention = True
+        # else:
+        #     self.attention = False
+        if self.attention:
+            self.attention_kernel = self.add_weight(
+                shape=(input_dim, self.units * 3),
+                name='attention_kernel',
+                initializer=self.kernel_initializer)
+        if self.use_bias:
+            bias_shape = (self.units * 3, )
+            self.bias = self.add_weight(
+                shape=bias_shape,
+                name='bias',
+                initializer=self.bias_initializer)
+            self.input_bias, self.recurrent_bias = self.bias, None
+        else:
+            self.bias = None
+
+    def call(self, inputs, states):
+        if self.embedding_size != self.units:
+            inputs = self.dense_input(inputs)
+        if isinstance(states, list) or isinstance(states, tuple):
+            h_tm1 = states[0]
+            inference = False
+        else:
+            inference = True
+            h_tm1 = states
+        # import pdb; pdb.set_trace()
+        if 0 < self.dropout < 1:
+            self.dropout_mask = model_helper.dropout_mask_helper(
+                array_ops.ones_like(inputs), self.dropout, training=True)
+            h_tm1 = h_tm1 * self.dropout_mask
+            inputs = inputs * self.dropout_mask
+        x_z = tf.keras.backend.dot(inputs, self.kernel[:, :self.units])
+        x_r = tf.keras.backend.dot(inputs,
+                                   self.kernel[:, self.units:self.units * 2])
+        x_h = tf.keras.backend.dot(inputs, self.kernel[:, self.units * 2:])
+
+        if self.use_bias:
+            x_z = tf.keras.backend.bias_add(x_z, self.input_bias[:self.units])
+            x_r = tf.keras.backend.bias_add(
+                x_r, self.input_bias[self.units:self.units * 2])
+            x_h = tf.keras.backend.bias_add(x_h,
+                                            self.input_bias[self.units * 2:])
+        if self.attention:
+            context_vector, attention_weights = self.attention_wrapper(h_tm1)
+            if 0 < self.dropout < 1:
+                context_vector = context_vector * self.dropout_mask
+            c_z = tf.keras.backend.dot(context_vector,
+                                       self.attention_kernel[:, :self.units])
+            c_r = tf.keras.backend.dot(
+                context_vector,
+                self.attention_kernel[:, self.units:self.units * 2])
+            c_h = tf.keras.backend.dot(
+                context_vector, self.attention_kernel[:, self.units * 2:])
+        else:
+            c_z = 0
+            c_r = 0
+            c_h = 0
+        recurrent_z = tf.keras.backend.dot(
+            h_tm1, self.recurrent_kernel[:, :self.units])
+        recurrent_r = tf.keras.backend.dot(
+            h_tm1, self.recurrent_kernel[:, self.units:self.units * 2])
+        z = tf.nn.sigmoid(x_z + recurrent_z + c_z)
+        r = tf.nn.sigmoid(x_r + recurrent_r + c_r)
+        recurrent_h = tf.keras.backend.dot(
+            r * h_tm1, self.recurrent_kernel[:, self.units * 2:])
+        h_bar = tf.nn.tanh(x_h + recurrent_h + c_h)
+
+        h = z * h_tm1 + (1 - z) * h_bar
+        if self.projection is not self.units:
+            if inference:
+                return self.dense_output(h), h
+
+            return self.dense_output(h), [h]
+
+        else:
+            if inference:
+                return h, h
+
+            return h, [h]
+
+    @property
+    def get_attention_weight(self):
+        if self.attention:
+            return self.attention_wrapper.get_attenton_weights
+        else:
+            return 0
+
+    @property
+    def state_size(self):
+        return self.units
+
+    @property
+    def output_size(self):
+        return self.units
+
+    def set_attention_context(self, context):
+        self.attention = True
+        self.attention_context = context
+        self.attention_wrapper.set_attenton_context(context)
+
+    def set_dropout(self, pro):
+        self.dropout = pro
+
+    def get_initial_state(self):
+        self.build()
+        return tf.zeros((self.batch_sz, self.units))
+
+
+class Align(RNN):
     def __init__(self,
+                 units,
+                 attention=False,
+                 return_sequences=True,
+                 return_state=True,
+                 activation="tanh",
+                 embedding_size=256,
+                 projection=0,
+                 name=None):
+        # State_size is defined as same as units in cells and which means, we dont
+        # use projection for cell state
+        self.state_size = units
+        self.output_size = units
+        cell = AlignCell(
+            units,
+            attention,
+            embedding_size=embedding_size,
+            projection=projection)
+        super(Align, self).__init__(
+            cell,
+            return_sequences=return_sequences,
+            return_state=return_state,
+            name=name)
+
+    def call(self, inputs, initial_state=None):
+        """
+            batch major
+        """
+        return super(Align, self).call(inputs, initial_state=initial_state)
+
+    def set_attention(self, context):
+        self.cell.set_attention_context(context)
+
+    def set_dropout(self, pro):
+        self.cell.set_dropout(pro)
+
+
+class TheOldManAndSea(tf.keras.Model):
+    def __init__(self,
+                 units,
+                 batch_size,
                  src_vocabulary_size,
                  tgt_vocabulary_size,
-                 batch_size,
-                 unit_num,
-                 embedding_size,
-                 backforward=True,
-                 embedding_matrix=True,
-                 eager=True):
-        super(BabelTower, self).__init__()
+                 embedding_size=256,
+                 activation=None,
+                 inference_length=50,
+                 bidirectional=True):
+
+        super(TheOldManAndSea, self).__init__()
+        self.units = units
         self.batch_size = batch_size
-        self.unit_num = unit_num
-        self.embedding_size = embedding_size
-        self.bw = backforward
-        self.time_major = True
+        self.decoder_units = units
+        self.bidirectional = bidirectional
         self.src_vocabulary_size = src_vocabulary_size
         self.tgt_vocabulary_size = tgt_vocabulary_size
-        self.embedding_matrix = embedding_matrix
-        self.eager = eager
-        self.layer_initializer()
+        self.embedding_size = embedding_size
+        self.activation = activation
+        self.inference_length = inference_length
+        self.fw_encoder = Align(
+            self.units, activation=self.activation,
+            name='fw_encoder')  # No activation used
+        # self.fw_encoder.set_dropout(self.dropout)
+        if self.bidirectional:
+            self.bw_encoder = Align(
+                self.units, activation=self.activation, name='bw_encoder')
+            self.decoder_units = units * 2
+            # self.bw_encoder.set_dropout(self.dropout)
+        self.encoder_zero_state = tf.zeros((self.batch_size, self.units))
+        self.decoder = Align(
+            self.decoder_units,
+            attention=True,
+            activation=self.activation,
+            embedding_size=self.embedding_size,
+            projection=self.embedding_size,
+            name='decoder')
+        # self.decoder.set_dropout(self.dropout)
 
-    def layer_initializer(self):
-        self.fw_encoder = RNNcoder(
+    def feed_encoder(self, src_input, src_length):
+        src_input = self.src_embedding(src_input)
+        # src_input = self.src_dense(src_input)
+        self.fw_encoder_hidden, self.fw_encoder_state = self.fw_encoder(
+            src_input, initial_state=self.encoder_zero_state)
+
+        if self.bidirectional:
+            reversed_src_input = tf.reverse_sequence(
+                src_input, src_length, seq_axis=1, batch_axis=0)
+            self.bw_encoder_hidden, self.bw_encoder_state = self.bw_encoder(
+                reversed_src_input, initial_state=self.encoder_zero_state)
+            encoder_hidden = tf.concat(
+                (self.fw_encoder_hidden, self.bw_encoder_hidden), -1)
+            encoder_state = tf.concat(
+                (self.fw_encoder_state, self.bw_encoder_state), -1)
+        else:
+            self.encoder_hidden = self.fw_encoder_hidden
+        self.encoder_hidden = tf.keras.layers.BatchNormalization()(
+            encoder_hidden)
+        self.encoder_state = tf.keras.layers.BatchNormalization()(
+            encoder_state)
+        self.encoder_hidden = tf.nn.tanh(encoder_hidden)
+        self.encoder_state = tf.nn.tanh(encoder_state)
+        return self.encoder_hidden, self.encoder_state
+
+    def feed_decoder(self, tgt_input, tgt_length, encoder_hidden,
+                     encoder_state):
+        tgt_input = self.tgt_embedding(tgt_input)
+        # tgt_input = self.tgt_dense(tgt_input)
+        self.decoder.set_attention(encoder_hidden)
+        decoder_hidden, decoder_state = self.decoder(
+            tgt_input, initial_state=encoder_state)
+        decoder_hidden = tf.keras.layers.BatchNormalization()(decoder_hidden)
+        decoder_state = tf.keras.layers.BatchNormalization()(decoder_state)
+        self.decoder_hidden = tf.nn.tanh(decoder_hidden)
+        self.decoder_state = tf.nn.tanh(decoder_state)
+        projection = self.projection(decoder_hidden)
+        self.logit = tf.keras.layers.Softmax()(projection)
+        return self.logit, self.decoder_hidden, self.decoder_state
+
+    def build(self, input_shape):
+        self.src_embedding = tf.keras.layers.Embedding(
             self.src_vocabulary_size,
-            self.batch_size,
-            self.unit_num,
             self.embedding_size,
-            backforward=False,
-            eager=self.eager)
-        self.fw_final = self.fw_encoder.initialize_hidden_state()
-        if self.bw:
-            self.bw_encoder = RNNcoder(
-                self.src_vocabulary_size,
-                self.batch_size,
-                self.unit_num,
-                self.embedding_size,
-                backforward=True,
-                eager=self.eager)
-            self.decoder_unit_num = self.unit_num * 2
-            self.decoder_embedding_size = self.embedding_size * 2
-            self.bw_final = self.fw_encoder.initialize_hidden_state()
-        else:
-            self.decoder_unit_num = self.unit_num
-            self.decoder_embedding_size = self.embedding_size
-
-        self.decoder = RNNcoder(
+            name='src_embedding')
+        self.tgt_embedding = tf.keras.layers.Embedding(
             self.tgt_vocabulary_size,
-            self.batch_size,
-            self.decoder_unit_num,
-            self.decoder_embedding_size,
-            eager=self.eager)
-        self.project = tf.keras.layers.Dense(self.tgt_vocabulary_size)
-        self.logit = tf.keras.layers.Softmax(-1)
+            self.embedding_size,
+            name='tgt_embedding')
+        # self.src_dense = tf.keras.layers.Dense(self.units, name='src_dense')
+        # self.tgt_dense = tf.keras.layers.Dense(
+        #     self.decoder_units, name='tgt_dense')
+        # self.hidden_dense = tf.keras.layers.Dense(self.embedding_size)
+        # self.projection = tf.keras.layers.Dense(self.tgt_vocabulary_size, )
+        self.projection = core_layer.Dense(self.tgt_vocabulary_size, name='fc')
 
-    def call(self, inputs):
-        (src_input, tgt_input, src_length, tgt_length) = inputs
-        # try:
-        #     src_time_step = src_time_step.eval()
-        #     tgt_time_step = tgt_time_step.eval()
-        # except Exception:
-        #     src_time_step = 1
-        #     tgt_time_step = 1
-        fw_inputs = (src_input, src_length, self.fw_final, 0)
-        fw_encoder_hidden, fw_final = self.fw_encoder(fw_inputs)
-        if self.bw:
-            bw_inputs = (src_input, src_length, self.bw_final,
-                         0)
-            bw_encoder_hidden, bw_final = self.bw_encoder(bw_inputs)
-            self.encoder_hidden = tf.concat(
-                (fw_encoder_hidden, bw_encoder_hidden), -1)
-            self.encoder_final = tf.concat((fw_final, bw_final), -1)
-        else:
-            self.encoder_final = fw_final
-            self.encoder_hidden = fw_encoder_hidden
-        self.decoder_final = self.encoder_final
-        decoder_inputs = (tgt_input, tgt_length, self.decoder_final,
-                          self.encoder_hidden)
-        self.decoder_hidden, self.decoder_final = self.decoder(decoder_inputs)
-        projection = self.project(self.decoder_hidden)
-        self.logits = self.logit(projection)
-        return self.logits
+    def call(self, inputs, train=None, dropout=1):
+        src_input, tgt_input, src_length, tgt_length = inputs
+        if dropout < 1:
+            self.fw_encoder.set_dropout(dropout)
+            if self.bidirectional:
+                self.bw_encoder.set_dropout(dropout)
+        encoder_hidden, encoder_state = self.feed_encoder(
+            src_input, src_length)
+        decoder_hidden = self.feed_decoder(tgt_input, tgt_length,
+                                           encoder_hidden, encoder_state)
+        logits, decoder_hidden, decoder_state = self.feed_decoder(
+            tgt_input, tgt_length, encoder_hidden, encoder_state)
+        return logits, decoder_hidden, decoder_state
 
-    def get_state(self):
-        """Short summary.
+    def beam_search(self, inputs, sos_id, eos_id, beam_width=5):
+        src_input, tgt_input, src_length, tgt_length = inputs
+        encoder_hidden, encoder_state = self.feed_encoder(
+            src_input, src_length)
+        start_tokens = tf.constant(
+            value=sos_id, shape=[self.batch_size], dtype=tf.int32)
+        decoder_initial_state = tf.contrib.seq2seq.tile_batch(
+            encoder_state, multiplier=2)
+        encoder_hidden = tf.contrib.seq2seq.tile_batch(
+            encoder_hidden, multiplier=2)
+        self.decoder.set_attention(encoder_hidden)
 
-        Args:
+        decoder = tf.contrib.seq2seq.BeamSearchDecoder(
+            cell=self.decoder.cell,
+            embedding=self.tgt_embedding,
+            start_tokens=start_tokens,
+            end_token=eos_id,
+            initial_state=decoder_initial_state,
+            output_layer=self.projection,
+            beam_width=2)
 
-
-        Returns:
-            (self.encoder_final, self.encoder_hidden),
-            (self.decoder_final, self.decoder_hidden)
-        """
-        return (self.encoder_final, self.encoder_hidden), (self.decoder_final,
-                                                           self.decoder_hidden)
-
-    def re_initialize_final_state(self):
-        """Short summary.
-        re initialize final state to initial RNN cell state
-        Args:
+        # Dynamic decoding
+        pred, _, _ = tf.contrib.seq2seq.dynamic_decode(
+            decoder, maximum_iterations=self.inference_length)
+        return pred
 
 
-        Returns:
-            type: Description of returned object.
-
-        """
-        self.fw_final = self.fw_encoder.initialize_hidden_state()
-        if self.bw:
-            self.bw_final = self.fw_encoder.initialize_hidden_state()
-
-
-class BabelTowerFactory():
-    def __init__(self,
-                 src_data_path,
-                 tgt_data_path,
-                 batch_size=64,
-                 unit_num=128,
-                 embedding_size=128,
-                 backforward=True,
-                 embedding_matrix=True,
-                 eager=True):
+class TheOldManAndSea_factory():
+    def __init__(
+            self,
+            src_data_path,
+            tgt_data_path,
+            batch_size=64,
+            shuffle=100,
+            unit_num=128,
+            embedding_size=128,
+            bidirectional=True,
+    ):
         self.batch_size = batch_size
         self.unit_num = unit_num
         self.embedding_size = embedding_size
-        self.bw = backforward
+        self.bidirectional = bidirectional
         self.time_major = True
         self.src_data_path = src_data_path
         self.tgt_data_path = tgt_data_path
-
-        self.embedding_matrix = embedding_matrix
-        self.eager = eager
+        self._get_data
         print("build model")
 
-    def _get_data(self, source_data_path, tgt_data_path, batch_size):
+    def _get_data(self, batch_size):
         sentenceHelper = SentenceHelper(
-            source_data_path, tgt_data_path, batch_size=batch_size)
-        # dataset, src_vocabulary, tgt_vocabulary, src_ids2word, tgt_ids2word = data_sentence_helper.prepare_data(
-        #     source_data_path, tgt_data_path, batch_size=batch_size)
-        # self.src_vocabulary_size = len(src_vocabulary)
-        # self.tgt_vocabulary_size = len(tgt_vocabulary)
-        # return dataset, (src_vocabulary, src_ids2word), (tgt_vocabulary,
-        #                                                  tgt_ids2word)
+            self.src_data_path,
+            self.tgt_data_path,
+            batch_size=batch_size,
+            shuffle=100000)
         src_vocabulary, tgt_vocabulary, src_ids2word, tgt_ids2word = sentenceHelper.prepare_vocabulary(
         )
         self.src_vocabulary_size = len(src_vocabulary)
         self.tgt_vocabulary_size = len(tgt_vocabulary)
         return sentenceHelper
 
-    def mini_model(self, batch=4):
-        """Short summary.
-            A very mine model is used to test model structure.
-        Args:
-            batch (type): Description of parameter `batch`.
+    def test_model(self, batch_size=16, unit=16):
+        sentenceHelper = self._get_data(batch_size)
+        test_model = TheOldManAndSea(unit, batch_size,
+                                     self.src_vocabulary_size,
+                                     self.tgt_vocabulary_size)
+        return test_model, sentenceHelper
 
-        Returns:
-            model dataset, (src_vocabulary,src_ids2word), (tgt_vocabulary,tgt_ids2word)
+    def small_model(self, batch_size=64, unit=64):
+        sentenceHelper = self._get_data(batch_size)
+        small_model = TheOldManAndSea(unit, batch_size,
+                                      self.src_vocabulary_size,
+                                      self.tgt_vocabulary_size)
+        return small_model, sentenceHelper
 
-        """
-        sentenceHelper = self._get_data(self.src_data_path, self.tgt_data_path,
-                                        batch)
-        return BabelTower(
-            src_vocabulary_size=self.src_vocabulary_size,
-            tgt_vocabulary_size=self.tgt_vocabulary_size,
-            batch_size=batch,
-            unit_num=4,
-            embedding_size=4,
-            eager=self.eager), sentenceHelper
+    def large_model(self, batch_size=128, unit=128):
+        sentenceHelper = self._get_data(batch_size)
+        large_model = TheOldManAndSea(unit, batch_size,
+                                      self.src_vocabulary_size,
+                                      self.tgt_vocabulary_size)
+        return large_model, sentenceHelper
 
-    def small_model(self, batch=16, unit_num=16, embedding_size=16):
-        """Short summary.
-            A very small model is used to test model training.
-        Args:
-            batch (type): Description of parameter `batch`.
 
-        Returns:
-            model dataset, (src_vocabulary,src_ids2word), (tgt_vocabulary,tgt_ids2word)
-
-        """
-        sentenceHelper = self._get_data(self.src_data_path, self.tgt_data_path,
-                                        batch)
-        return BabelTower(
-            src_vocabulary_size=self.src_vocabulary_size,
-            tgt_vocabulary_size=self.tgt_vocabulary_size,
-            batch_size=batch,
-            unit_num=unit_num,
-            embedding_size=embedding_size,
-            eager=self.eager), sentenceHelper
-
-    def large_model(self, batch_size=32, unit_num=128, embedding_size=128):
-        """Short summary.
-            A full model is used to train final model.
-        Args:
-            batch (type): Description of parameter `batch`.
-
-        Returns:
-            model dataset, (src_vocabulary,src_ids2word), (tgt_vocabulary,tgt_ids2word)
-
-        """
-        sentenceHelper = self._get_data(self.src_data_path, self.tgt_data_path,
-                                        batch_size)
-        return BabelTower(
-            src_vocabulary_size=self.src_vocabulary_size,
-            tgt_vocabulary_size=self.tgt_vocabulary_size,
-            batch_size=batch_size,
-            unit_num=unit_num,
-            embedding_size=embedding_size,
-            eager=self.eager), sentenceHelper
+# class AlignAndTranslate(tf.keras.Model):
+#     """
+#         inputs should be time major
+#     """
+#
+#     def __init__(self, units, batch_size, bidirectional=True):
+#         super(AlignAndTranslate, self).__init__()
+#         self.units = units
+#         self.batch_size = batch_size
+#         self.decoder_units = units
+#         self.bi = bidirectional
+#         self.fw_encoder = Align(self.units, name='fw_encoder')
+#         if self.bi:
+#             self.bw_encoder = Align(self.units, name='bw_encoder')
+#             self.decoder_units = units * 2
+#         self.decoder = Align(
+#             self.decoder_units, attention_context=0, name='decoder')
+#         self.encoder_zero_state = tf.zeros((self.batch_size, self.units))
+#
+#     def encoder(self, src_input, src_length):
+#         self.fw_encoder_hidden, self.fw_encoder_state = self.fw_encoder(
+#             src_input, initial_state=self.encoder_zero_state)
+#         if self.bi:
+#             reversed_src_input = tf.reverse_sequence(
+#                 src_input, src_length, seq_axis=1, batch_axis=0)
+#             self.bw_encoder_hidden, self.bw_encoder_state = self.bw_encoder(
+#                 reversed_src_input, initial_state=self.encoder_zero_state)
+#             self.encoder_hidden = tf.concat(
+#                 (self.fw_encoder_hidden, self.bw_encoder_hidden), -1)
+#             self.encoder_state = tf.concat(
+#                 (self.fw_encoder_state, self.bw_encoder_state), -1)
+#         else:
+#             self.encoder_hidden = self.fw_encoder_hidden
+#         return self.encoder_hidden, self.encoder_state
+#
+#     def decoder(self, tgt_input, encoder_hidden, encoder_state):
+#         self.decoder.set_attention(encoder_hidden)
+#         self.decoder_hidden, self.decoder_state = self.decoder(
+#             tgt_input, initial_state=encoder_state)
+#         return self.decoder_hidden, self.decoder_state
+#
+#     def call(self, inputs):
+#         (src_input, tgt_input, src_length, tgt_length) = inputs
+#         # attention_context = model_helper.batch_major_helper(self.encoder_hidden)
+#         encoder_hidden, encoder_state = self.encoder(src_input, src_length)
+#         decoder_hidden, decoder_state = self.decoder(tgt_input, encoder_hidden,
+#                                                      encoder_state)
+#         return decoder_hidden, decoder_state
+#

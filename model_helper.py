@@ -14,6 +14,19 @@ class TimeHistory(tf.train.SessionRunHook):
         self.times.append(time.time() - self.iter_time_start)
 
 
+def dropout_mask_helper(ones, rate, training=None, count=1):
+    def dropped_inputs():
+        return tf.keras.backend.dropout(ones, rate)
+
+    if count > 1:
+        return [
+            tf.keras.backend.in_train_phase(
+                dropped_inputs, ones, training=training) for _ in range(count)
+        ]
+    return tf.keras.backend.in_train_phase(
+        dropped_inputs, ones, training=training)
+
+
 def embedding_helper(X, vocabulary_size, embedding_size):
     """Short summary.
 
@@ -111,24 +124,24 @@ def batch_major_helper(X):
     return tf.transpose(X, [1, 0, 2])
 
 
-def beam_search_helper(logit, width=5, top_paths=1, greedy=False):
-    """Short summary.
-    generate sentence ids from logits.
+def beam_search_helper(decoder_cell, encoder_state, beam_width,
+                       embedding_decoder, sos_id, eos_id, batch_size):
+    # Replicate encoder infos beam_width times
+    decoder_initial_state = tf.contrib.seq2seq.tile_batch(
+        encoder_state, multiplier=beam_width)
+    start_tokens = tf.constant(value=sos_id, shape=[batch_size])
+    # Define a beam-search decoder
+    decoder = tf.contrib.seq2seq.BeamSearchDecoder(
+        cell=decoder_cell,
+        embedding=embedding_decoder,
+        start_tokens=start_tokens,
+        end_token=eos_id,
+        initial_state=decoder_initial_state,
+        beam_width=beam_width)
 
-    Args:
-        logit (type): [batch,time,vectore].
-        greedy (type): if greedy is false, it uses beam search.
-
-    Returns:
-        type: Description of returned object.
-
-    """
-    sequence_length = tf.shape(logit)[1]
-    batch = tf.shape(logit)[0]
-    path = tf.constant(sequence_length, shape=[batch])
-    language_model = tf.keras.backend.ctc_decode(
-        logit, path, beam_width=width, top_paths=top_paths, greedy=False)
-    return language_model
+    # Dynamic decoding
+    outputs, _ = tf.contrib.seq2seq.dynamic_decode(decoder)
+    return outputs
 
 
 def dense_helper(X, out_dimention, activation='relu'):
