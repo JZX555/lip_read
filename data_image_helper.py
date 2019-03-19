@@ -12,7 +12,7 @@ import numpy as np
 import cv2
 
 class data_image_helper:
-    def __init__(self, detector):
+    def __init__(self, detector = None):
         self.detector = detector
 
     def read_img(self, path, shape, size):

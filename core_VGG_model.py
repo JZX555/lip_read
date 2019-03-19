@@ -215,7 +215,8 @@ class VGGTowerFactory(tf.keras.Model):
                  batch_size = 64,
                  num_units = 512, 
                  time_step = 10,
-                 backforward = False):
+                 backforward = False,
+                 eager = False):
         super(VGGTowerFactory, self).__init__()
         self.detector_path = detector_path
         self.data_path = data_path
@@ -224,6 +225,7 @@ class VGGTowerFactory(tf.keras.Model):
         self.num_units = num_units
         self.time_step = time_step
         self.bf = backforward
+        self.eager = eager
 
         print("build VGG model")
 
@@ -247,7 +249,8 @@ class VGGTowerFactory(tf.keras.Model):
         return VGGTower(batch_size = batch_size,
                         embed_size = 4,
                         num_units = 4,
-                        backforward = self.bf), dataset, images
+                        backforward = self.bf,
+                        eager = self.eager), dataset, images
 
     def small_model(self, batch_size = 16, embed_size = 16, num_units = 16):
         """short summary: 
@@ -266,7 +269,8 @@ class VGGTowerFactory(tf.keras.Model):
         return VGGTower(batch_size = batch_size,
                         embed_size = embed_size,
                         num_units = num_units,
-                        backforward = self.bf), dataset, images
+                        backforward = self.bf,
+                        eager = self.eager), dataset, images
     
     def full_model(self):
         """short summary: 
@@ -283,7 +287,8 @@ class VGGTowerFactory(tf.keras.Model):
         return VGGTower(batch_size = self.batch_size,
                         embed_size = self.embed_size,
                         num_units = self.num_units,
-                        backforward = self.bf), dataset, images
+                        backforward = self.bf,
+                        eager = self.eager), dataset, images
 
 # this is used to test VGGTower
 if __name__ == '__main__':
