@@ -46,11 +46,11 @@ class CNNcoder(tf.keras.Model):
         return f_o
 
     def call(self, inputs):
-        (imgs, lengths) = inputs
+        imgs = inputs
         if(self.eager):
-            time_step = np.max(lengths)
+            time_step = tf.shape(imgs)[1]
         else:
-            time_step = np.max(lengths.eval())
+            time_step = tf.get_shape(imgs)[1]
         embeded =[]
 
         for i in range(time_step):
