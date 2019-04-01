@@ -12,10 +12,10 @@ import numpy as np
 import cv2
 
 class data_image_helper:
-    def __init__(self, detector = None):
+    def __init__(self, detector):
         self.detector = detector
 
-    def read_img(self, path, shape, size):
+    def read_img(self, path , shape, size, begin = 0, end = 0):
         """
             Video_Read is used to extract the image of mouth from a video;\n
             parameter:\n
@@ -27,6 +27,11 @@ class data_image_helper:
         images = []
         mouth = None
         cnt = 0
+        frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        v_length = frames/fps
+        if(end == 0 or end >= v_length):
+            end = v_length
         
         if(cap.isOpened() == False):
             print("Read video failed!")
@@ -36,12 +41,16 @@ class data_image_helper:
         classifier_face = cv2.CascadeClassifier("./cascades/haarcascade_frontalface_alt.xml")
         classifier_mouth = cv2.CascadeClassifier("./cascades/haarcascade_mcs_mouth.xml")
         
-        while (True):     
+        cap.set(cv2.CAP_PROP_POS_FRAMES , begin*fps)
+        pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
+
+        while ( pos <= end*fps and end <= v_length):
             ret, img = cap.read()    
             '''
                 第一个参数ret的值为True或False，代表有没有读到图片
                 第二个参数是frame，是当前截取一帧的图片
-            '''
+            '''        
+            pos = cap.get(cv2.CAP_PROP_POS_FRAMES)
             if ret == False:
                 break
             
@@ -136,19 +145,22 @@ class data_image_helper:
                      batch_size, 
                      shape = (20, 20),
                      size = (109, 109)):
-
+        
+        writer = tf.python_io.TFRecordWriter('img')
         dataset = []
         length = []
         for path in paths:
-            video, cnt = self.read_img(path, shape, size)
+            video, cnt = self.read_img(path, shape, size, 0.5 , 1)
+            video = np.array(video) / 255.0
+            video = video.astype(np.float32)
             dataset.append(video)
             length.append(cnt)
         
-        
-        dataset = np.array(dataset) / 255.0
-        dataset = dataset.astype(np.float32)
+        def generator():
+            for d, c in zip(dataset, length):
+                yield d, c
 
-        batch_dataset = tf.data.Dataset.from_tensor_slices((dataset, length))
+        batch_dataset = tf.data.Dataset.from_generator(generator, (tf.float32, tf.int32))
         batch_dataset = batch_dataset.padded_batch(
             batch_size,
             padded_shapes = (
@@ -161,7 +173,9 @@ class data_image_helper:
 if __name__ == '__main__':
     #tf_contrib.eager.enable_eager_execution()
     helper = data_image_helper(detector = 'C:/Users/50568/Desktop/我/Macheaning Cafe/tensorflow_prototype/Lip_Reading/cascades/')
-    b, d = helper.prepare_data(paths = ['D:/lip_data/ABOUT/train/ABOUT_00003.mp4'], batch_size = 64)
+    # b, d = helper.prepare_data(paths = ['D:/lip_data/ABOUT/train/ABOUT_00003.mp4'], batch_size = 64)
+    b, d = helper.prepare_data(paths = ['C:/Users/50568/Desktop/1.avi', 'D:/lip_data/ABOUT/train/ABOUT_00001.mp4'], batch_size = 64)
     print(b)
     for (i,(x, l)) in enumerate(b):
+        print(x)
         print(l)
