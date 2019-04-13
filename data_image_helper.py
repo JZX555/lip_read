@@ -5,7 +5,7 @@ Created on Mon Jan 14 20:55:34 2019
 @author: 50568
 """
 
-
+import data_file_helper as fh
 import tensorflow as tf
 import tensorflow.contrib as tf_contrib
 import numpy as np
@@ -139,14 +139,13 @@ class data_image_helper:
     #     batch_dataset = batch_dataset.batch(batch_size)
         
     #     return batch_dataset, self.images
-
+    
     def prepare_data(self, 
                      paths, 
                      batch_size, 
                      shape = (20, 20),
                      size = (109, 109)):
         
-        writer = tf.python_io.TFRecordWriter('img')
         dataset = []
         length = []
         for path in paths:
@@ -171,11 +170,14 @@ class data_image_helper:
         return batch_dataset, dataset
     
 if __name__ == '__main__':
+    video, txt = fh.read_file('D:/lip_data/ABOUT/test')
     #tf_contrib.eager.enable_eager_execution()
+    print(video[:5])
+    print(txt[:5])
     helper = data_image_helper(detector = 'C:/Users/50568/Desktop/我/Macheaning Cafe/tensorflow_prototype/Lip_Reading/cascades/')
     # b, d = helper.prepare_data(paths = ['D:/lip_data/ABOUT/train/ABOUT_00003.mp4'], batch_size = 64)
-    b, d = helper.prepare_data(paths = ['C:/Users/50568/Desktop/1.avi', 'D:/lip_data/ABOUT/train/ABOUT_00001.mp4'], batch_size = 64)
+    b, d = helper.prepare_data(paths = video, batch_size = 32)
     print(b)
-    for (i,(x, l)) in enumerate(b):
-        print(x)
-        print(l)
+    #for (i,(x, l)) in enumerate(b):
+    #    print(x)
+    #    print(l)
