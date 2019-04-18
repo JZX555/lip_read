@@ -22,7 +22,7 @@ text_parser = core_data_SRCandTGT.DatasetManager([CORPUS_PATH], [CORPUS_PATH],
 def word_reader(path):
     video, _, word = fh.read_file(path)
     # raw_data = []
-    print(video)
+    print("Total train samples:{}".format(len(video)))
     for k, v in enumerate(video):
         # visualization.percent(k, len(video))
         v_data, _ = image_parser.prepare_data(
