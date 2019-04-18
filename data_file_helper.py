@@ -43,7 +43,7 @@ def read_file(path):
                     flag = ''
 
     return video, txt
-    
+
 if __name__ == '__main__':
     v, t = read_file('D:/lip_data/ABOUT')
     print(v[5], t[5])
