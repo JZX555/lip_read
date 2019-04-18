@@ -151,7 +151,7 @@ class data_image_helper:
                      paths,
                      batch_size,
                      shape=(20, 20),
-                     size=(109, 109),
+                     size=(224, 224),
                      raw=False):
 
         dataset = []

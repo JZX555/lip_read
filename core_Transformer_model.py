@@ -22,7 +22,8 @@ class Prometheus(tf.keras.Model):
                  num_decoder_layers=6,
                  dropout=0.4,
                  eos_id=1,
-                 pad_id=0):
+                 pad_id=0,
+                 external_embedding=False):
         super(Prometheus, self).__init__(name='transformer')
         self.max_seq_len = max_seq_len
         self.vocabulary_size = vocabulary_size

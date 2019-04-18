@@ -25,45 +25,48 @@ def read_file(path, model_format = ['train']):
         if(os.path.split(filename[0])[-1] not in model_format):
             continue
 
+        print(filename)
         for f in filename[2]:
             tmp = filename[0] + '/' + f
             if os.path.splitext(f)[1] in txt_Format:
-                if(flag == '' or flag == os.path.splitext(f)[0]):
-                    txt.append(tmp)
-                    if('_' in f):
-                        word.append(True)
-                    else:
-                        word.append(False)
-                    if(flag == ''):
-                        flag = os.path.splitext(f)[0]
-                    else:
-                        flag = ''
+                # if(flag == '' or flag == os.path.splitext(f)[0]):
+                txt.append(tmp)
+                if('_' in f):
+                    w = f.split('_')
+                    word.append(w[0].lower())
+                # else:
+                #     word.append(False)
+                if(flag == ''):
+                    flag = os.path.splitext(f)[0]
                 else:
-                    if(len(video) > len(txt)):
-                        video.pop()
-                    else:
-                        word.pop()
-                        txt.pop()
                     flag = ''
+                # else:
+                #     if(len(video) > len(txt)):
+                #         video.pop()
+                #     else:
+                #         word.pop()
+                #         txt.pop()
+                #     flag = ''
 
             if os.path.splitext(f)[1] in video_Format:
-                if(flag == '' or flag == os.path.splitext(f)[0]):
-                    video.append(tmp)
-                    if(flag == ''):
-                        flag = os.path.splitext(f)[0]
-                    else:
-                        flag = ''
+                # if(flag == '' or flag == os.path.splitext(f)[0]):
+                video.append(tmp)
+                if(flag == ''):
+                    flag = os.path.splitext(f)[0]
                 else:
-                    if(len(video) > len(txt)):
-                        video.pop()
-                    else:
-                        word.pop()
-                        txt.pop()
                     flag = ''
+                # else:
+                #     if(len(video) > len(txt)):
+                #         video.pop()
+                #     else:
+                #         word.pop()
+                #         txt.pop()
+                #     flag = ''
 
     return video, txt, word
 
 if __name__ == '__main__':
-    v, t, w = read_file('D:/lip_data/train')
+    ROOT_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data'
+    v, t, w = read_file(ROOT_PATH)
     print(len(v), len(t))
     print(w)
