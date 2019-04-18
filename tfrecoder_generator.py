@@ -22,6 +22,7 @@ text_parser = core_data_SRCandTGT.DatasetManager([CORPUS_PATH], [CORPUS_PATH],
 def word_reader(path):
     video, _, word = fh.read_file(path)
     # raw_data = []
+    print(video)
     for k, v in enumerate(video):
         # visualization.percent(k, len(video))
         v_data, _ = image_parser.prepare_data(
@@ -87,10 +88,10 @@ def tfrecord_generater(record_dir, raw_data):
         #     num_train += 1
         checker = int((index + 1) / 60)
         num_train += 1
+        print("Train samples are : {}".format(num_train))
         if checker > shard:
             print(
                 "TFRecord {} is completed.".format(prefix_train + str(shard)))
-            print("Train samples are : {}".format(num_train))
             # print("Test samples are : {}".format(num_test))
             train_writers.close()
             # test_writers.close()

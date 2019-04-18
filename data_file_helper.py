@@ -1,6 +1,6 @@
 import os
 
-def read_file(path, model_format = ['train']):
+def read_file(path, model_format = ['train', 'val']):
     """
     This fuc is use to read all files's name from root path
     args:
