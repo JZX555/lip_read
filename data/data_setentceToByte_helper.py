@@ -45,12 +45,14 @@ class Subtokenizer(object):
                  EOS_ID=1,
                  PAD='<PADDDD>',
                  EOS='<EOSSSS>',
+                 MASK='<MASK>',
                  reserved_tokens=None):
         """Initializes class, creating a vocab file if data_files is provided."""
         print("Initializing Subtokenizer from file %s." % files)
         self.PAD_ID = PAD_ID
         self.EOS_ID = EOS_ID
-        self.RESERVED_TOKENS = [PAD, EOS]
+        self.MASK = MASK
+        self.RESERVED_TOKENS = [PAD, EOS, MASK]
         if reserved_tokens is None:
             reserved_tokens = self.RESERVED_TOKENS
         vocab_file = "./data/_BYTE_LEVEL_vocabulary"
@@ -117,8 +119,7 @@ class Subtokenizer(object):
             threshold,
             min_count,
             reserved_tokens=self.RESERVED_TOKENS)
-        print(
-            "Generated vocabulary with %d subtokens." % len(subtoken_list))
+        print("Generated vocabulary with %d subtokens." % len(subtoken_list))
         _save_vocab_file(vocab_file, subtoken_list)
         self.subtoken_list = _load_vocab_file(
             vocab_file, reserved_tokens=self.RESERVED_TOKENS)
@@ -378,9 +379,8 @@ def _generate_subtokens_with_target_vocab_size(token_counts,
         reserved_tokens = reserved_tokens
 
     if min_count is not None:
-        print(
-            "Using min_count=%d to generate vocab with target size %d" %
-            (min_count, target_size))
+        print("Using min_count=%d to generate vocab with target size %d" %
+              (min_count, target_size))
         return _generate_subtokens(
             token_counts, alphabet, min_count, reserved_tokens=reserved_tokens)
 
@@ -388,13 +388,13 @@ def _generate_subtokens_with_target_vocab_size(token_counts,
         """Recursive function to binary search for subtoken vocabulary."""
         cur_count = (min_val + max_val) // 2
         print("Binary search: trying min_count=%d (%d %d)" %
-                        (cur_count, min_val, max_val))
+              (cur_count, min_val, max_val))
         subtoken_list = _generate_subtokens(
             token_counts, alphabet, cur_count, reserved_tokens=reserved_tokens)
 
         val = len(subtoken_list)
-        print("Binary search: min_count=%d resulted in %d tokens" %
-                        (cur_count, val))
+        print("Binary search: min_count=%d resulted in %d tokens" % (cur_count,
+                                                                     val))
 
         within_threshold = abs(val - target_size) < threshold
         if within_threshold or min_val >= max_val or cur_count < 2:
@@ -410,8 +410,7 @@ def _generate_subtokens_with_target_vocab_size(token_counts,
             return other_subtoken_list
         return subtoken_list
 
-    print(
-        "Finding best min_count to get target size of %d" % target_size)
+    print("Finding best min_count to get target size of %d" % target_size)
     return bisect(_MIN_MIN_COUNT, _MAX_MIN_COUNT)
 
 
@@ -579,8 +578,8 @@ def _generate_WORD_LEVEL_vocabulary(file, line_token='\n', word_token=' '):
         for subtoken in vocab:
             f.write("'%s'\n" % subtoken)
 
-    print("Generating WORD_LEVEL vocabulary finished, found %d words"
-                    % len(vocab))
+    print("Generating WORD_LEVEL vocabulary finished, found %d words" %
+          len(vocab))
     return vocab
 
 

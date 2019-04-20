@@ -10,12 +10,14 @@ class HyperParam:
                  UNK_ID=0,
                  SOS_ID=0,
                  EOS_ID=1,
-                 PAD_ID=0):
+                 PAD_ID=0,
+                 MASK_ID=2):
         self.gpu = gpu
         self.UNK_ID = UNK_ID
         self.SOS_ID = SOS_ID
         self.EOS_ID = EOS_ID
         self.PAD_ID = PAD_ID
+        self.MASK_ID = MASK_ID
         self.model_summary_dir = "model_summary"
         self.model_weights_dir = "model_weights"
         self.model_checkpoint_dir = "model_checkpoint"
