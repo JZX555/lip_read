@@ -20,7 +20,7 @@ image_parser = data_image_helper.data_image_helper(detector='./cascades/')
 text_parser = core_data_SRCandTGT.DatasetManager([CORPUS_PATH], [CORPUS_PATH],
                                                  tf_recoder=False)
 
-BUFFER_SIZE = 100
+BUFFER_SIZE = 200
 
 
 def _int64_feature(value):
