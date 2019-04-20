@@ -24,8 +24,6 @@ def read_file(path, model_format = ['train', 'val']):
         flag = ''
         if(os.path.split(filename[0])[-1] not in model_format):
             continue
-
-        print(filename)
         for f in filename[2]:
             tmp = filename[0] + '/' + f
             if os.path.splitext(f)[1] in txt_Format:

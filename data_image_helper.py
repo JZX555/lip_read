@@ -7,9 +7,10 @@ Created on Mon Jan 14 20:55:34 2019
 
 import data_file_helper as fh
 import tensorflow as tf
-import tensorflow.contrib as tf_contrib
+# import tensorflow.contrib as tf_contrib
 import numpy as np
 import cv2
+import visualization
 
 
 class data_image_helper:
@@ -147,12 +148,29 @@ class data_image_helper:
 
     #     return batch_dataset, self.images
 
-    def prepare_data(self,
-                     paths,
-                     batch_size,
-                     shape=(20, 20),
-                     size=(224, 224),
-                     raw=False):
+    def get_raw_dataset(self, paths, shape=(20, 20), size=(224, 224)):
+        dataset = []
+        length = []
+
+        def generator():
+            for d in dataset:
+                yield d
+
+        for path in paths:
+            video, cnt = self.read_img(path, shape, size, 0.5, 1)
+            video = np.array(video) / 255.0
+            video = video.astype(np.float32)
+            dataset.append(np.reshape(video, [-1]))
+        return dataset
+        # return tf.data.Dataset.from_generator(generator, tf.float32)
+
+    def prepare_data(
+            self,
+            paths,
+            batch_size,
+            shape=(20, 20),
+            size=(224, 224),
+    ):
 
         dataset = []
         length = []
@@ -167,17 +185,14 @@ class data_image_helper:
             for d, c in zip(dataset, length):
                 yield d, c
 
-        batch_dataset = tf.data.Dataset.from_generator(generator,
-                                                       (tf.float32, tf.int32))
-        if raw:
-            return dataset, dataset
-        else:
-            batch_dataset = batch_dataset.padded_batch(
-                batch_size,
-                padded_shapes=(tf.TensorShape([None, 109, 109, 5]),
-                               tf.TensorShape([])))
+        raw_dataset = tf.data.Dataset.from_generator(generator,
+                                                     (tf.float32, tf.int32))
+        batch_dataset = raw_dataset.padded_batch(
+            batch_size,
+            padded_shapes=(tf.TensorShape([None, 109, 109, 5]),
+                           tf.TensorShape([])))
 
-        return batch_dataset, dataset
+        return batch_dataset, raw_dataset
 
 
 if __name__ == '__main__':
