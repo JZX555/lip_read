@@ -148,20 +148,12 @@ class data_image_helper:
 
     #     return batch_dataset, self.images
 
-    def get_raw_dataset(self, paths, shape=(20, 20), size=(224, 224)):
-        dataset = []
-        length = []
+    def get_raw_dataset(self, path, shape=(20, 20), size=(224, 224)):
 
-        def generator():
-            for d in dataset:
-                yield d
-
-        for path in paths:
-            video, cnt = self.read_img(path, shape, size, 0.5, 1)
-            video = np.array(video) / 255.0
-            video = video.astype(np.float32)
-            dataset.append(np.reshape(video, [-1]))
-        return dataset
+        video, cnt = self.read_img(path, shape, size, 0.5, 1)
+        video = np.array(video) / 255.0
+        video = video.astype(np.float32)
+        return video
         # return tf.data.Dataset.from_generator(generator, tf.float32)
 
     def prepare_data(

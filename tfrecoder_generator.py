@@ -1,5 +1,6 @@
 # encoding=utf8
 import tensorflow as tf
+tf.enable_eager_execution()
 import data_image_helper
 import data_file_helper as fh
 import core_data_SRCandTGT
@@ -7,20 +8,28 @@ import six
 import os
 import time
 import visualization
-tf.enable_eager_execution()
+import core_lip_main
+from multiprocessing import Process, Pool
+from threading import Thread
 # import visualization
 cwd = os.getcwd()
 CORPUS_PATH = cwd + '/corpus/europarl-v7.fr-en.en'
 print(CORPUS_PATH)
-ROOT_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data'
-WORD_ROOT_PATH = '/home/vivalavida/massive_data/lip_reading_data/word_level_lrw'
-TFRecord_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
-WORD_TFRecord_PATH = '/home/vivalavida/massive_data/lip_reading_TFRecord/word'
+# ROOT_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data'
+# TFRecord_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
+ROOT_PATH = '/home/vivalavida/massive_data/lip_reading_data/word_level_lrw'
+TFRecord_PATH = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecodr_word'
 image_parser = data_image_helper.data_image_helper(detector='./cascades/')
 text_parser = core_data_SRCandTGT.DatasetManager([CORPUS_PATH], [CORPUS_PATH],
                                                  tf_recoder=False)
 
 BUFFER_SIZE = 200
+
+vgg16 = core_lip_main.get_vgg()
+vgg16_flatten = vgg16.get_layer('flatten')
+vgg16_output = vgg16_flatten.output
+vgg16.input
+model = tf.keras.Model(vgg16.input, vgg16_output)
 
 
 def _int64_feature(value):
@@ -50,14 +59,15 @@ def word_reader(path):
     # raw_data = []
     tf.logging.info("Total train samples:{}".format(len(video)))
     for k, v in enumerate(video):
-        v_data = image_parser.get_raw_dataset(paths=[v])
+        v_data = image_parser.get_raw_dataset(paths=v)
+        v_data = tf.reshape(model(v_data), [-1])
         w = text_parser.encode(word[k])
         # tf.logging.info("Train sample:{}".format(k))
         visualization.percent(k, total)
         yield (v_data, w)
 
 
-def tfrecord_generater(record_dir, raw_data):
+def tfrecord_generater(record_dir, raw_data, index):
     num_train = 0
     # num_test = 0
     prefix_train = record_dir + "/train_TFRecord_"
@@ -88,31 +98,64 @@ def tfrecord_generater(record_dir, raw_data):
     options = tf.python_io.TFRecordOptions(
         tf.python_io.TFRecordCompressionType.GZIP)
     for k, v in enumerate(raw_data):
-        if checker == shard:
-            pass
-        else:
-            shard = k // BUFFER_SIZE
-            train_writers = tf.python_io.TFRecordWriter(
-                prefix_train + str(shard), options=options)
-        example = dict_to_example(
-            v[0][0].tolist(),
-            v[1],
-        )
-        train_writers.write(example.SerializeToString())
-        checker = int((k + 1) / BUFFER_SIZE)
-        num_train += 1
-        if num_train % BUFFER_SIZE == 0:
-            tf.logging.info("Train samples are : {}".format(num_train))
-        if checker > shard:
-            print(
-                "TFRecord {} is completed.".format(prefix_train + str(shard)))
-            # print("Test samples are : {}".format(num_test))
-            train_writers.close()
+        v_data = image_parser.get_raw_dataset(path=v[0])
+        # import pdb; pdb.set_trace()
+        if len(v_data.shape) == 4:
+            v_data = tf.reshape(model(v_data), [-1])
+            w = text_parser.encode(v[1])
+            if checker == shard:
+                pass
+            else:
+                shard = k // BUFFER_SIZE
+                train_writers = tf.python_io.TFRecordWriter(
+                    prefix_train + str(index * 10000 + shard), options=options)
+            example = dict_to_example(
+                v_data.numpy().tolist(),
+                w,
+            )
+            train_writers.write(example.SerializeToString())
+            checker = int((k + 1) / BUFFER_SIZE)
+            num_train += 1
+            if num_train % BUFFER_SIZE == 0:
+                tf.logging.info("Train samples are : {}".format(num_train))
+            if checker > shard:
+                print("TFRecord {} is completed.".format(prefix_train +
+                                                         str(shard)))
+                # print("Test samples are : {}".format(num_test))
+                train_writers.close()
+
+        visualization.percent(k, len(raw_data))
 
 
-raw_data = word_reader(WORD_ROOT_PATH)
-tfrecord_generater(WORD_TFRecord_PATH, raw_data)
-
+# raw_data = word_reader(ROOT_PATH)
+# if __name__ == '__main__':
+P = 2
+t = time.time()
+video, _, word = fh.read_file(ROOT_PATH)
+worker = len(video) // P
+raw_data = list(zip(video, word))
+tfrecord_generater(TFRecord_PATH, raw_data, 1)
+# p = Pool(P)
+# i = 1
+# r = p.map_async(tfrecord_generater,(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
+# r.wait()
+# p.close()
+# p.join()
+# processes = []
+# coord = tf.train.Coordinator()
+for i in range(2):
+    t = Process(
+        target=tfrecord_generater,
+        args=(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
+    t.start()
+    t.join()
+    # processes.append(t)
+# coord.join(processes)
+# # for one_process in processes:
+# #     one_process.join()
+# print("Done!")
+# p.start()
+# p.join()
 # files = tf.data.Dataset.list_files(TFRecord_PATH + "/train_TFRecord_*")
 # dataset = tf.data.TFRecordDataset(
 #     filenames=files, compression_type='GZIP', buffer_size=BUFFER_SIZE)
