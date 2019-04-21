@@ -129,7 +129,7 @@ def tfrecord_generater(record_dir, raw_data, index):
 
 # raw_data = word_reader(ROOT_PATH)
 # if __name__ == '__main__':
-P = 2
+P = 12
 t = time.time()
 video, _, word = fh.read_file(ROOT_PATH)
 worker = len(video) // P
@@ -143,7 +143,7 @@ tfrecord_generater(TFRecord_PATH, raw_data, 1)
 # p.join()
 # processes = []
 # coord = tf.train.Coordinator()
-for i in range(2):
+for i in range(P):
     t = Process(
         target=tfrecord_generater,
         args=(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
