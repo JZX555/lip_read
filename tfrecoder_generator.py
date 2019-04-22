@@ -12,6 +12,7 @@ import core_lip_main
 from multiprocessing import Process, Pool
 from threading import Thread
 # import visualization
+CUDA_VISIBLE_DEVICES=""
 cwd = os.getcwd()
 CORPUS_PATH = cwd + '/corpus/europarl-v7.fr-en.en'
 print(CORPUS_PATH)
