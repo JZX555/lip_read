@@ -124,7 +124,7 @@ def tfrecord_generater(record_dir, raw_data, index):
                 else:
                     shard = k // BUFFER_SIZE
                     train_writers = tf.python_io.TFRecordWriter(
-                        prefix_train + str(index * 100 + shard),
+                        prefix_train + str(index * 1000000 + shard),
                         options=options)
                 example = dict_to_example(
                     v_data.numpy().tolist(),
