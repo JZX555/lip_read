@@ -159,12 +159,13 @@ raw_data = list(zip(video, word))
 # p.join()
 # processes = []
 # coord = tf.train.Coordinator()
-for i in range(P):
-    t = Process(
-        target=tfrecord_generater,
-        args=(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
-    t.start()
-    t.join()
+with tf.device("/cpu:0"):
+    for i in range(P):
+        t = Process(
+            target=tfrecord_generater,
+            args=(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
+        t.start()
+        t.join()
     # processes.append(t)
 # coord.join(processes)
 # # for one_process in processes:
