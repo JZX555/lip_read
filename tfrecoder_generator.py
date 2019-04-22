@@ -29,12 +29,13 @@ BUFFER_SIZE = 200
 
 
 def get_vgg():
-    if tf.gfile.Exists('pre_train/vgg16_pre_all'):
-        vgg16 = tf.keras.models.load_model('pre_train/vgg16_pre_all')
-    else:
-        vgg16 = tf.keras.applications.vgg16.VGG16(
-            include_top=True, weights='imagenet')
-    return vgg16
+    with tf.device("/cpu:0"):
+        if tf.gfile.Exists('pre_train/vgg16_pre_all'):
+            vgg16 = tf.keras.models.load_model('pre_train/vgg16_pre_all')
+        else:
+            vgg16 = tf.keras.applications.vgg16.VGG16(
+                include_top=True, weights='imagenet')
+        return vgg16
 
 
 vgg16 = get_vgg()
