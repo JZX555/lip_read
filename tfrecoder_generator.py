@@ -21,7 +21,7 @@ ROOT_PATH = '/home/vivalavida/massive_data/lip_reading_data/word_level_lrw'
 TFRecord_PATH = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecodr_word'
 image_parser = data_image_helper.data_image_helper(detector='./cascades/')
 text_parser = core_data_SRCandTGT.DatasetManager([CORPUS_PATH], [CORPUS_PATH],
-                                                 tf_recoder=False)
+                                                 )
 
 BUFFER_SIZE = 200
 
