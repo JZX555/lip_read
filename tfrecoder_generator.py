@@ -151,7 +151,7 @@ t = time.time()
 video, _, word = fh.read_file(ROOT_PATH)
 worker = len(video) // P
 raw_data = list(zip(video, word))
-# tfrecord_generater(TFRecord_PATH, raw_data, 1)
+tfrecord_generater(TFRecord_PATH, raw_data, 1)
 # p = Pool(P)
 # i = 1
 # r = p.map_async(tfrecord_generater,(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
@@ -160,13 +160,13 @@ raw_data = list(zip(video, word))
 # p.join()
 # processes = []
 # coord = tf.train.Coordinator()
-with tf.device("/cpu:0"):
-    for i in range(P):
-        t = Process(
-            target=tfrecord_generater,
-            args=(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
-        t.start()
-        t.join()
+# with tf.device("/cpu:0"):
+#     for i in range(P):
+#         t = Process(
+#             target=tfrecord_generater,
+#             args=(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
+#         t.start()
+#         t.join()
     # processes.append(t)
 # coord.join(processes)
 # # for one_process in processes:
