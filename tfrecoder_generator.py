@@ -20,18 +20,23 @@ print(CORPUS_PATH)
 ROOT_PATH = '/home/vivalavida/massive_data/lip_reading_data/word_level_lrw'
 TFRecord_PATH = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecodr_word'
 image_parser = data_image_helper.data_image_helper(detector='./cascades/')
-text_parser = core_data_SRCandTGT.DatasetManager([CORPUS_PATH], [CORPUS_PATH],
-                                                 )
+text_parser = core_data_SRCandTGT.DatasetManager(
+    [CORPUS_PATH],
+    [CORPUS_PATH],
+)
 
 BUFFER_SIZE = 200
 
+
 def get_vgg():
-        if tf.gfile.Exists('pre_train/vgg16_pre_all'):
-            vgg16 = tf.keras.models.load_model('pre_train/vgg16_pre_all')
-        else:
-            vgg16 = tf.keras.applications.vgg16.VGG16(
-                include_top=True, weights='imagenet')
-        return vgg16
+    if tf.gfile.Exists('pre_train/vgg16_pre_all'):
+        vgg16 = tf.keras.models.load_model('pre_train/vgg16_pre_all')
+    else:
+        vgg16 = tf.keras.applications.vgg16.VGG16(
+            include_top=True, weights='imagenet')
+    return vgg16
+
+
 vgg16 = get_vgg()
 vgg16_flatten = vgg16.get_layer('flatten')
 vgg16_output = vgg16_flatten.output
@@ -100,7 +105,8 @@ def tfrecord_generater(record_dir, raw_data, index):
             features = {}
             features['img'] = _float_feature(img)
             features['text'] = _int64_feature(txt)
-            return tf.train.Example(features=tf.train.Features(feature=features))
+            return tf.train.Example(
+                features=tf.train.Features(feature=features))
 
         checker = -1
         shard = 0
@@ -117,7 +123,8 @@ def tfrecord_generater(record_dir, raw_data, index):
                 else:
                     shard = k // BUFFER_SIZE
                     train_writers = tf.python_io.TFRecordWriter(
-                        prefix_train + str(index * 10000 + shard), options=options)
+                        prefix_train + str(index * 10000 + shard),
+                        options=options)
                 example = dict_to_example(
                     v_data.numpy().tolist(),
                     w,
@@ -138,7 +145,7 @@ def tfrecord_generater(record_dir, raw_data, index):
 
 # raw_data = word_reader(ROOT_PATH)
 # if __name__ == '__main__':
-P = 12
+P = 8
 t = time.time()
 video, _, word = fh.read_file(ROOT_PATH)
 worker = len(video) // P
