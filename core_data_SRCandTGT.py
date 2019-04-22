@@ -1,9 +1,7 @@
 # encoding=utf8
 from hyper_and_conf import conf_fn as train_conf
 from data import data_setentceToByte_helper
-import numpy as np
 import tensorflow as tf
-import six
 
 
 class DatasetManager():
@@ -54,6 +52,7 @@ class DatasetManager():
             self.cpus = 12 * train_conf.get_available_gpus()
         else:
             self.cpus = 4
+        self.tfrecord_path = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
 
     def corpus_length_checker(self, data=None, re=False):
         self.short_20 = 0
@@ -108,13 +107,14 @@ class DatasetManager():
         def _parse_example(serialized_example):
             """Return inputs and targets Tensors from a serialized tf.Example."""
             data_fields = {
-                "src": tf.VarLenFeature(tf.int64),
-                "tgt": tf.VarLenFeature(tf.int64)
+                "img": tf.VarLenFeature(tf.float32),
+                "text": tf.VarLenFeature(tf.int64)
             }
+            # import pdb;pdb.set_trace()
             parsed = tf.parse_single_example(serialized_example, data_fields)
-            src = tf.sparse_tensor_to_dense(parsed["src"])
-            tgt = tf.sparse_tensor_to_dense(parsed["tgt"])
-            return src, tgt
+            img = tf.reshape(tf.sparse_tensor_to_dense(parsed["img"]), [-1, ])
+            text = tf.sparse_tensor_to_dense(parsed["text"])
+            return img, text
 
         def _filter_max_length(example, max_length=256):
             return tf.logical_and(
@@ -129,25 +129,27 @@ class DatasetManager():
             return dataset
 
     def get_raw_train_dataset(self):
+        files = tf.data.Dataset.list_files(self.tfrecord_path +
+                                           "/train_TFRecord_100*")
         with tf.device('/cpu:0'):
-            return self.create_dataset(self.train_tfr)
+            return self.create_dataset(files)
 
-    def get_raw_val_dataset(self):
-        with tf.device('/cpu:0'):
-            return self.create_dataset(self.val_tfr)
-
-    def get_raw_test_dataset(self):
-        with tf.device("/cpu:0"):
-            return self.create_dataset(self.test_tfr)
-
-    def get_train_size(self):
-        return self.train_size
-
-    def get_val_size(self):
-        return self.val_size
-
-    def get_test_size(self):
-        return self.test_size
+    # def get_raw_val_dataset(self):
+    #     with tf.device('/cpu:0'):
+    #         return self.create_dataset(self.val_tfr)
+    #
+    # def get_raw_test_dataset(self):
+    #     with tf.device("/cpu:0"):
+    #         return self.create_dataset(self.test_tfr)
+    #
+    # def get_train_size(self):
+    #     return self.train_size
+    #
+    # def get_val_size(self):
+    #     return self.val_size
+    #
+    # def get_test_size(self):
+    #     return self.test_size
 
 
 # tf.enable_eager_execution()

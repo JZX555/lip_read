@@ -10,7 +10,7 @@ import tensorflow as tf
 DATA_PATH = sys.path[0]
 SYS_PATH = sys.path[1]
 src_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
-tgt_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.fr"]
+tgt_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
 
 
 def get_available_cpus():
@@ -190,10 +190,10 @@ def test_model():
 
 def get_metrics():
     # evaluation metrics
-    bleu = hyper_train.Approx_BLEU_Metrics(eos_id=hp.EOS_ID)
+    # bleu = hyper_train.Approx_BLEU_Metrics(eos_id=hp.EOS_ID)
     accuracy = hyper_train.Padded_Accuracy(hp.PAD_ID)
     accuracy_topk = hyper_train.Padded_Accuracy_topk(k=10, pad_id=hp.PAD_ID)
-    return [bleu, accuracy, accuracy_topk]
+    return [accuracy, accuracy_topk]
 
 
 def get_optimizer():
@@ -282,5 +282,5 @@ def make_parallel(model, gpu_count, ps_device=None):
         return tf.keras.Model(inputs=model.inputs, outputs=merged)
 
 
-model = train_model()
-model.summary()
+# model = train_model()
+# model.summary()

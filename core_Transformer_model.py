@@ -168,26 +168,26 @@ class Prometheus(tf.keras.Model):
             outputs = self.norm(inputs)
             K_V = self.norm(inputs)
             i = 0
-            # for i in range(self.num_decoder_layers):
-            # if cache is not None:
-            #     # Combine cached keys and values with new keys and values.
-            #     K_V = tf.concat((cache[str(i)], outputs), axis=1)
-            #     # Update cache
-            #     cache[str(i)] = K_V
-            with tf.name_scope('layer_%d' % i):
-                de_outputs = self.de_mask_att[i](
-                    outputs, (K_V, K_V),
-                    self_mask_bias,
-                    cache=cache,
-                    training=training)
-                de_outputs = self.norm(outputs + de_outputs)
-                multi_att = self.de_att[i](
-                    de_outputs, (enc, enc),
-                    padding_mask_bias,
-                    training=training)
-                multi_att = self.norm(multi_att + de_outputs)
-                outputs = self.de_ffn[i](multi_att, training=training)
-                outputs = self.norm(outputs + multi_att)
+            for i in range(self.num_decoder_layers):
+                if cache is not None:
+                    # Combine cached keys and values with new keys and values.
+                    K_V = tf.concat((cache[str(i)], outputs), axis=1)
+                    # Update cache
+                    cache[str(i)] = K_V
+                with tf.name_scope('layer_%d' % i):
+                    de_outputs = self.de_mask_att[i](
+                        outputs, (K_V, K_V),
+                        self_mask_bias,
+                        cache=cache,
+                        training=training)
+                    de_outputs = self.norm(outputs + de_outputs)
+                    multi_att = self.de_att[i](
+                        de_outputs, (enc, enc),
+                        padding_mask_bias,
+                        training=training)
+                    multi_att = self.norm(multi_att + de_outputs)
+                    outputs = self.de_ffn[i](multi_att, training=training)
+                    outputs = self.norm(outputs + multi_att)
             return outputs
 
     def call(self, inputs, training=False):

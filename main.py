@@ -24,7 +24,7 @@ def main():
     metrics = init.get_metrics()
     with tf.device("/cpu:0"):
         train_x, train_y = init.train_input()
-        val_x, val_y = init.val_input()
+        # val_x, val_y = init.val_input()
         train_model = init.train_model()
         # with strategy.scope():
         hp = init.get_hp()
@@ -77,7 +77,7 @@ def main():
             epochs=hp.epoch_num,
             steps_per_epoch=train_step,
             verbose=1,
-            validation_data=(val_x, val_y),
+            # validation_data=(val_x, val_y),
             validation_steps=val_step,
             callbacks=callbacks,
             max_queue_size=8 * (gpu if gpu > 0 else 1),
