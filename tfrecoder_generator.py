@@ -25,7 +25,14 @@ text_parser = core_data_SRCandTGT.DatasetManager([CORPUS_PATH], [CORPUS_PATH],
 
 BUFFER_SIZE = 200
 
-vgg16 = core_lip_main.get_vgg()
+def get_vgg():
+        if tf.gfile.Exists('pre_train/vgg16_pre_all'):
+            vgg16 = tf.keras.models.load_model('pre_train/vgg16_pre_all')
+        else:
+            vgg16 = tf.keras.applications.vgg16.VGG16(
+                include_top=True, weights='imagenet')
+        return vgg16
+vgg16 = get_vgg()
 vgg16_flatten = vgg16.get_layer('flatten')
 vgg16_output = vgg16_flatten.output
 vgg16.input
