@@ -68,63 +68,65 @@ def word_reader(path):
 
 
 def tfrecord_generater(record_dir, raw_data, index):
-    num_train = 0
-    # num_test = 0
-    prefix_train = record_dir + "/train_TFRecord_"
 
-    # prefix_test = record_dir + "/test_TFRecord_"
+    with tf.device("/cpu:0"):
+        num_train = 0
+        # num_test = 0
+        prefix_train = record_dir + "/train_TFRecord_"
 
-    def all_exist(filepaths):
-        """Returns true if all files in the list exist."""
-        for fname in filepaths:
-            if not tf.gfile.Exists(fname):
-                return False
-        return True
+        # prefix_test = record_dir + "/test_TFRecord_"
 
-    def txt_line_iterator(path):
-        with tf.gfile.Open(path) as f:
-            for line in f:
-                yield line.strip()
+        def all_exist(filepaths):
+            """Returns true if all files in the list exist."""
+            for fname in filepaths:
+                if not tf.gfile.Exists(fname):
+                    return False
+            return True
 
-    def dict_to_example(img, txt):
-        """Converts a dictionary of string->int to a tf.Example."""
-        features = {}
-        features['img'] = _float_feature(img)
-        features['text'] = _int64_feature(txt)
-        return tf.train.Example(features=tf.train.Features(feature=features))
+        def txt_line_iterator(path):
+            with tf.gfile.Open(path) as f:
+                for line in f:
+                    yield line.strip()
 
-    checker = -1
-    shard = 0
-    options = tf.python_io.TFRecordOptions(
-        tf.python_io.TFRecordCompressionType.GZIP)
-    for k, v in enumerate(raw_data):
-        v_data = image_parser.get_raw_dataset(path=v[0])
-        # import pdb; pdb.set_trace()
-        if len(v_data.shape) == 4:
-            v_data = tf.reshape(model(v_data), [-1])
-            w = text_parser.encode(v[1])
-            if checker == shard:
-                pass
-            else:
-                shard = k // BUFFER_SIZE
-                train_writers = tf.python_io.TFRecordWriter(
-                    prefix_train + str(index * 10000 + shard), options=options)
-            example = dict_to_example(
-                v_data.numpy().tolist(),
-                w,
-            )
-            train_writers.write(example.SerializeToString())
-            checker = int((k + 1) / BUFFER_SIZE)
-            num_train += 1
-            if num_train % BUFFER_SIZE == 0:
-                tf.logging.info("Train samples are : {}".format(num_train))
-            if checker > shard:
-                print("TFRecord {} is completed.".format(prefix_train +
-                                                         str(shard)))
-                # print("Test samples are : {}".format(num_test))
-                train_writers.close()
+        def dict_to_example(img, txt):
+            """Converts a dictionary of string->int to a tf.Example."""
+            features = {}
+            features['img'] = _float_feature(img)
+            features['text'] = _int64_feature(txt)
+            return tf.train.Example(features=tf.train.Features(feature=features))
 
-        visualization.percent(k, len(raw_data))
+        checker = -1
+        shard = 0
+        options = tf.python_io.TFRecordOptions(
+            tf.python_io.TFRecordCompressionType.GZIP)
+        for k, v in enumerate(raw_data):
+            v_data = image_parser.get_raw_dataset(path=v[0])
+            # import pdb; pdb.set_trace()
+            if len(v_data.shape) == 4:
+                v_data = tf.reshape(model(v_data), [-1])
+                w = text_parser.encode(v[1])
+                if checker == shard:
+                    pass
+                else:
+                    shard = k // BUFFER_SIZE
+                    train_writers = tf.python_io.TFRecordWriter(
+                        prefix_train + str(index * 10000 + shard), options=options)
+                example = dict_to_example(
+                    v_data.numpy().tolist(),
+                    w,
+                )
+                train_writers.write(example.SerializeToString())
+                checker = int((k + 1) / BUFFER_SIZE)
+                num_train += 1
+                if num_train % BUFFER_SIZE == 0:
+                    tf.logging.info("Train samples are : {}".format(num_train))
+                if checker > shard:
+                    print("TFRecord {} is completed.".format(prefix_train +
+                                                             str(shard)))
+                    # print("Test samples are : {}".format(num_test))
+                    train_writers.close()
+
+            visualization.percent(k, len(raw_data))
 
 
 # raw_data = word_reader(ROOT_PATH)

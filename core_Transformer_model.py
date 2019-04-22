@@ -95,6 +95,8 @@ class Prometheus(tf.keras.Model):
 
     def Encoder(self, inputs, padding_matrix=None, length=None,
                 training=False):
+        Q, K, V = inputs
+        inputs = Q
         with tf.name_scope("encoder"):
             if training is not False:
                 dropout_mask_inputs = tf.keras.backend.dropout(
@@ -110,20 +112,25 @@ class Prometheus(tf.keras.Model):
             else:
                 padding_mask_bias = 0
             positional_input = self.possition_encoding(length)
-
             inputs = src_input + positional_input
 
-            outputs = self.norm(inputs)
-            i = 0
-            # for i in range(self.num_encoder_layers):
-            with tf.name_scope('layer_%d' % i):
-                multi_att = self.en_att[i](
-                    outputs, (outputs, outputs),
-                    padding_mask_bias,
-                    training=training)
-                multi_att = self.norm(multi_att + outputs)
-                outputs = self.en_ffn[i](multi_att, training=training)
-                outputs = self.norm(outputs + multi_att)
+            Q = K = V = self.norm(Q)
+            K = self.norm(K)
+            V = self.norm(V)
+            outputs = 0
+            for i in range(self.num_encoder_layers):
+                with tf.name_scope('layer_%d' % i):
+                    if i == 0:
+                        multi_att = self.en_att[i](
+                            Q, (K, V), padding_mask_bias, training=training)
+                    else:
+                        multi_att = self.en_att[i](
+                            outputs, (outputs, outputs),
+                            padding_mask_bias,
+                            training=training)
+                    multi_att = self.norm(multi_att + Q)
+                    outputs = self.en_ffn[i](multi_att, training=training)
+                    outputs = self.norm(outputs + multi_att)
 
             return outputs
 

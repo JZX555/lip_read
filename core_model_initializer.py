@@ -2,16 +2,15 @@
 import sys
 from hyper_and_conf import hyper_param as hyperParam
 from hyper_and_conf import hyper_train
-from hyper_and_conf import conf_fn as fn
-import core_Transformer_model
+import core_lip_main
 import core_data_SRCandTGT
 from tensorflow.python.client import device_lib
 import tensorflow as tf
 
 DATA_PATH = sys.path[0]
 SYS_PATH = sys.path[1]
-src_data_path = [DATA_PATH + "/europarl-v7.fr-en.en"]
-tgt_data_path = [DATA_PATH + "/europarl-v7.fr-en.fr"]
+src_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
+tgt_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.fr"]
 
 
 def get_available_cpus():
@@ -26,27 +25,15 @@ def get_available_gpus():
 
 gpu = get_available_gpus()
 TRAIN_MODE = 'large' if gpu > 0 else 'test'
-hp = hyperParam.HyperParam(TRAIN_MODE, gpu=get_available_gpus())
+hp = hyperParam.HyperParam('large', gpu=get_available_gpus())
 PAD_ID = tf.cast(hp.PAD_ID, tf.int64)
 with tf.device("/gpu:0"):
-    transformer = core_Transformer_model.Daedalus(
-        max_seq_len=hp.max_sequence_length,
-        vocabulary_size=hp.vocabulary_size,
-        embedding_size=hp.embedding_size,
-        batch_size=hp.batch_size,
-        num_units=hp.num_units,
-        num_heads=hp.num_heads,
-        num_encoder_layers=hp.num_encoder_layers,
-        num_decoder_layers=hp.num_decoder_layers,
-        dropout=hp.dropout,
-        eos_id=hp.EOS_ID,
-        pad_id=hp.PAD_ID)
-
-    if tf.gfile.Exists('pre_train/vgg16_pre_all'):
-        vgg16 = tf.keras.models.load_model('pre_train/vgg16_pre_all')
-    else:
-        vgg16 = tf.keras.applications.vgg16.VGG16(
-            include_top=True, weights='imagenet')
+    daedalus = core_lip_main.Daedalus(hp)
+    # if tf.gfile.Exists('pre_train/vgg16_pre_all'):
+    #     vgg16 = tf.keras.models.load_model('pre_train/vgg16_pre_all')
+    # else:
+    #     vgg16 = tf.keras.applications.vgg16.VGG16(
+    #         include_top=True, weights='imagenet')
     data_manager = core_data_SRCandTGT.DatasetManager(
         src_data_path,
         tgt_data_path,
@@ -105,7 +92,8 @@ def pad_sample(dataset, seq2seq=False):
             hp.batch_size,
             padded_shapes=(
                 (
-                    tf.TensorShape([None]),  # source vectors of unknown size
+                    tf.TensorShape([None,
+                                    None]),  # source vectors of unknown size
                     tf.TensorShape([None]),  # target vectors of unknown size
                 ),
                 tf.TensorShape([None])),
@@ -123,7 +111,7 @@ def pad_sample(dataset, seq2seq=False):
         dataset = dataset.padded_batch(
             hp.batch_size,
             padded_shapes=(
-                tf.TensorShape([None]),  # source vectors of unknown size
+                tf.TensorShape([None, None]),  # source vectors of unknown size
                 tf.TensorShape([None]),  # target vectors of unknown size
             ),
             padding_values=(
@@ -178,27 +166,26 @@ def val_input():
     return x, y
 
 
-def model_structure(training=False, multi_gpu=True):
+def model_structure(training=False):
     with tf.device('/cpu:0'):
-        src = tf.keras.layers.Input(
-            shape=[None], dtype=tf.int64, name='src_input')
-        tgt = tf.keras.layers.Input(
-            shape=[None], dtype=tf.int64, name='output_input')
-        # base_model.build(input)
-        # input = tf.keras.layers.concatenate([src, tgt], axis=0)
-        output = transformer((src, tgt), training=training)
-        model = tf.keras.models.Model(inputs=(src, tgt), outputs=output)
+        img_input = tf.keras.layers.Input(
+            shape=[None, 25088], dtype=tf.float32)
+        tgt_input = tf.keras.layers.Input(
+            shape=[None], dtype=tf.int64, name='tgt_input')
+        output = daedalus((img_input, tgt_input), training=training)
+        model = tf.keras.models.Model(
+            inputs=(img_input, tgt_input), outputs=output)
     # if multi_gpu and gpu > 0:
     #     model = tf.keras.utils.multi_gpu_model(model, gpus=gpu)
     return model
 
 
 def train_model():
-    return model_structure(True, multi_gpu=True)
+    return model_structure(True)
 
 
 def test_model():
-    return model_structure(False, multi_gpu=True)
+    return model_structure(False)
 
 
 def get_metrics():
@@ -293,3 +280,7 @@ def make_parallel(model, gpu_count, ps_device=None):
             merged.append(tf.keras.layers.concatenate(outputs, axis=0))
 
         return tf.keras.Model(inputs=model.inputs, outputs=merged)
+
+
+model = train_model()
+model.summary()

@@ -17,7 +17,6 @@ class DatasetManager():
                  EOS_ID=1,
                  PAD_ID=0,
                  cross_val=[0.89, 0.1, 0.01],
-                 tf_recoder=True,
                  byte_token='@@',
                  word_token=' ',
                  split_token='\n'):
@@ -55,8 +54,6 @@ class DatasetManager():
             self.cpus = 12 * train_conf.get_available_gpus()
         else:
             self.cpus = 4
-        if tf_recoder:
-            self.tfrecord_generater()
 
     def corpus_length_checker(self, data=None, re=False):
         self.short_20 = 0
@@ -79,148 +76,6 @@ class DatasetManager():
             print("median: %d" % self.median_50)
             print("long: %d" % self.long_100)
             print("super long: %d" % self.super_long)
-
-    def cross_validation(self,
-                         src_path_list,
-                         tgt_path_list,
-                         validation=0.0,
-                         test=0.05):
-        print("Cross validation process")
-        assert len(src_path_list) == len(tgt_path_list)
-        train_path = []
-        test_path = []
-        val_path = []
-        raw_data = []
-        index = 0
-        self.data_counter = 0
-        self.val_size = 0
-        self.test_size = 0
-        self.train_size = 0
-        for k, v in enumerate(src_path_list):
-            src_path = src_path_list[k]
-            tgt_path = tgt_path_list[k]
-            train_path_word = "./data/train_data_WORD_LEVEL_" + str(index)
-            test_path_word = "./data/test_data_WORD_LEVEL_" + str(index)
-            val_path_word = "./data/val_data_WORD_LEVEL_" + str(index)
-            with tf.gfile.GFile(src_path, "r") as f_src:
-                src_raw_data = f_src.readlines()
-                self.corpus_length_checker(src_raw_data)
-                with tf.gfile.GFile(tgt_path, "r") as f_tgt:
-                    tgt_raw_data = f_tgt.readlines()
-                    raw_data += list(zip(src_raw_data, tgt_raw_data))
-                    f_src.close()
-                self.data_counter += len(raw_data)
-                self.val_size += int(self.data_counter * validation)
-                self.test_size += int(self.data_counter * test)
-                self.train_size += self.data_counter - self.val_size - self.test_size
-                f_src.close()
-
-                def writer(path, data, byte=False):
-                    if tf.gfile.Exists(path) is not True:
-                        with tf.gfile.GFile(path, "w") as f:
-                            for w in data:
-                                if len(w) >= 0:
-                                    f.write(w[0].rstrip() + self.byte_token +
-                                            w[1])
-                            f.close()
-                    print("File exsits: {}".format(path))
-
-                if len(src_path_list) == 1 or len(raw_data) > 3000000:
-                    writer(train_path_word, raw_data[:self.train_size])
-                    # writer(val_path, raw_data[:128])
-                    writer(
-                        val_path_word,
-                        raw_data[self.train_size:self.train_size +
-                                 self.val_size])
-                    writer(test_path_word,
-                           raw_data[self.train_size + self.val_size:])
-                    train_path.append(train_path_word)
-                    val_path.append(val_path_word)
-                    test_path.append(val_path_word)
-                    index += 1
-                    raw_data = []
-                else:
-                    pass
-            print('Total data {0}'.format(self.data_counter))
-            print(('Train {0}, Validation {1}, Test {2}'.format(
-                self.train_size, self.val_size, self.test_size)))
-        return train_path, test_path, val_path
-
-    def tfrecord_generater(self):
-        with tf.device("/gpu:0"):
-            prefix_train = "./data/train_TFRecord_"
-            prefix_val = "./data/val_TFRecord_"
-            prefix_test = "./data/test_TFRecord_"
-            if len(self.cross_val) == 2:
-                # train_por = self.cross_val[0]
-                val_por = 0
-                test_por = self.test_val[1]
-            else:
-                # train_por = self.cross_val[0]
-                val_por = self.cross_val[1]
-                test_por = self.cross_val[2]
-
-            train_path, test_path, val_path = self.cross_validation(
-                self.source_data_path,
-                self.target_data_path,
-                validation=val_por,
-                test=test_por)
-
-            def all_exist(filepaths):
-                """Returns true if all files in the list exist."""
-                for fname in filepaths:
-                    if not tf.gfile.Exists(fname):
-                        return False
-                return True
-
-            def txt_line_iterator(path):
-                with tf.gfile.Open(path) as f:
-                    for line in f:
-                        yield line.strip()
-
-            def dict_to_example(dictionary):
-                """Converts a dictionary of string->int to a tf.Example."""
-                features = {}
-                for k, v in six.iteritems(dictionary):
-                    features[k] = tf.train.Feature(
-                        int64_list=tf.train.Int64List(value=v))
-                return tf.train.Example(
-                    features=tf.train.Features(feature=features))
-
-            def tfrecorder(path_list, prefix):
-                if len(path_list) > 0:
-                    tfr_path = [
-                        prefix + str(k) for k, _ in enumerate(path_list)
-                    ]
-                if all_exist(tfr_path):
-                    print("TFRecord already exists!")
-                else:
-                    writers = [
-                        tf.python_io.TFRecordWriter(fname)
-                        for fname in tfr_path
-                    ]
-                    for i, _ in enumerate(writers):
-                        for k, v in enumerate(txt_line_iterator(path_list[i])):
-                            src, tgt = v.split(self.byte_token)
-                            example = dict_to_example({
-                                "src":
-                                self.byter.encode(src, add_eos=True),
-                                "tgt":
-                                self.byter.encode(tgt, add_eos=True)
-                            })
-                            writers[i].write(example.SerializeToString())
-
-                    for writer in writers:
-                        writer.close()
-                return tfr_path
-
-        self.train_tfr = tfrecorder(train_path, prefix_train)
-        print("Train TFRecord generated {}".format(self.train_tfr))
-        self.val_tfr = tfrecorder(val_path, prefix_val)
-        print("Val TFRecord generated {}".format(self.val_tfr))
-        self.test_tfr = tfrecorder(test_path, prefix_test)
-        print("Test TFRecord generated {}".format(self.test_tfr))
-        print("All TFRecord generated")
 
     def encode(self, string, add_eos=True):
         return self.byter.encode(string, add_eos=True)
