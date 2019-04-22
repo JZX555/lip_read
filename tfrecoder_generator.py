@@ -150,7 +150,7 @@ t = time.time()
 video, _, word = fh.read_file(ROOT_PATH)
 worker = len(video) // P
 raw_data = list(zip(video, word))
-tfrecord_generater(TFRecord_PATH, raw_data, 1)
+# tfrecord_generater(TFRecord_PATH, raw_data, 1)
 # p = Pool(P)
 # i = 1
 # r = p.map_async(tfrecord_generater,(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
