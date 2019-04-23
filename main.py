@@ -27,7 +27,8 @@ def main():
     with tf.device("/cpu:0"):
         train_x, train_y = init.train_input()
         # val_x, val_y = init.val_input()
-        train_model = init.daedalus
+        # train_model = init.daedalus
+        train_model = init.train_model()
         # with strategy.scope():
         hp = init.get_hp()
         # dataset

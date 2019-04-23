@@ -11,7 +11,8 @@ DATA_PATH = sys.path[0]
 SYS_PATH = sys.path[1]
 src_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
 tgt_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
-
+TFRECORD = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word'
+# TFRECORD = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
 
 def get_available_cpus():
     local_device_protos = device_lib.list_local_devices()
@@ -43,8 +44,8 @@ with tf.device("/cpu:0"):
         # shuffle=hp.data_shuffle,
         shuffle=hp.data_shuffle,
         max_length=hp.max_sequence_length,
-        tfrecord_path=
-        '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word')
+        tfrecord_path=TFRECORD
+        )
 
 # train_dataset, val_dataset, test_dataset = data_manager.prepare_data()
 
