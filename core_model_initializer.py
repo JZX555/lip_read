@@ -11,8 +11,10 @@ DATA_PATH = sys.path[0]
 SYS_PATH = sys.path[1]
 src_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
 tgt_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
-TFRECORD = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word'
-# TFRECORD = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
+# TFRECORD = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word'
+
+TFRECORD = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
+
 
 def get_available_cpus():
     local_device_protos = device_lib.list_local_devices()
@@ -44,8 +46,7 @@ with tf.device("/cpu:0"):
         # shuffle=hp.data_shuffle,
         shuffle=hp.data_shuffle,
         max_length=hp.max_sequence_length,
-        tfrecord_path=TFRECORD
-        )
+        tfrecord_path=TFRECORD)
 
 # train_dataset, val_dataset, test_dataset = data_manager.prepare_data()
 
@@ -178,7 +179,7 @@ def val_input():
 def model_structure(training=False):
     with tf.device('/cpu:0'):
         img_input = tf.keras.layers.Input(
-            shape=[None, 25088], dtype=tf.float32)
+            shape=[None, 25088], dtype=tf.float32, name='VGG_features')
         tgt_input = tf.keras.layers.Input(
             shape=[None], dtype=tf.int64, name='tgt_input')
         output = daedalus((img_input, tgt_input), training=training)

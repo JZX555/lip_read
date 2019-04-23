@@ -14,9 +14,9 @@ CORPUS_PATH = cwd + '/corpus/europarl-v7.fr-en.en'
 print(CORPUS_PATH)
 # ROOT_PATH = '/Users/barid/Documents/workspace/batch_data'
 # TFRecord_PATH = '/Users/barid/Documents/workspace/batch_data/sentence_lip_data_TFRecord'
-# TRAIN_PATH = '/Users/barid/Documents/workspace/alpha/lip_read'
+# TRAIN_PATH = '/Users/barid/Documents/workspace/alpha/lip_read/lr_train.txt'
 ROOT_PATH = '/media/lab/文档/sentence_level_lrs2/main'
-TFRecord_PATH = '/media/lab/文档/sentence_level_lrs2/sentence_TRRECORD'
+TFRecord_PATH = '/media/lab/文档/sentence_level_lrs2/sentence_TFRECORD'
 TRAIN_PATH = '/media/lab/文档/sentence_level_lrs2/lr_train_shard_1.txt'
 image_parser = data_image_helper.data_image_helper(detector='./cascades/')
 text_parser = core_data_SRCandTGT.DatasetManager(

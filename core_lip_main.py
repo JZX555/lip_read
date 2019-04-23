@@ -80,45 +80,48 @@ class Daedalus(tf.keras.Model):
         #     shape=[None], dtype=tf.int64, name='tgt_input')
 
     def train_model(self, inputs, training=True):
-        img_input, tgt_input = inputs
+        with tf.name_scope("VGG_features"):
+            img_input, tgt_input = inputs
         # batch_size = self.hp.batch_size
         # Q_input_length = img_input.get_shape().as_list()[1]
-        img_input_padding = tf.to_float(tf.equal(img_input,
-                                                 self.hp.PAD_ID))[:, :, 0]
+        with tf.name_scope("fusion_layer"):
+            img_input_padding = tf.to_float(
+                tf.equal(img_input, self.hp.PAD_ID))[:, :, 0]
 
-        mask_id = self.hp.MASK_ID
-        mask_words = tf.zeros_like(
-            img_input[:, :, 0], dtype=tf.int32) + mask_id
-        # mask_words = tf.constant(mask_id, shape=[batch_size, Q_input_length])
-        mask_embedding = self.word_embedding(mask_words)
-        # fusion = tf.keras.layers.concatenate((img_input, mask_embedding), axis=0)
-        fusion = tf.keras.layers.concatenate([img_input, mask_embedding],
-                                             axis=-1)
+            mask_id = self.hp.MASK_ID
+            mask_words = tf.zeros_like(
+                img_input[:, :, 0], dtype=tf.int32) + mask_id
+            # mask_words = tf.constant(mask_id, shape=[batch_size, Q_input_length])
+            mask_embedding = self.word_embedding(mask_words)
+            # fusion = tf.keras.layers.concatenate((img_input, mask_embedding), axis=0)
+            fusion = tf.keras.layers.concatenate([img_input, mask_embedding],
+                                                 axis=-1)
 
-        # Q = self.Q(fusion)
-        # K = self.K(img_input)
-        # V = self.V(mask_embedding)
-        Q = tf.keras.backend.dot(fusion, self.Q)
-        K = Q
-        V = mask_embedding
-        # K = V
+            # Q = self.Q(fusion)
+            # K = self.K(img_input)
+            # V = self.V(mask_embedding)
+            Q = tf.keras.backend.dot(fusion, self.Q)
+            K = Q
+            V = mask_embedding
+            # K = V
 
-        # transformer_src = tf.keras.layers.Input(
-        #     shape=[None], dtype=tf.int64, name='transformer_src_input')
-        # transformer_tgt = tf.keras.layers.Input(
-        #     shape=[None], dtype=tf.int64, name='transformer_output_input')
-        encoder_out = self.transformer.Encoder((Q, K, V),
-                                               img_input_padding,
-                                               training=True)
-        embedding_tgt_input = self.word_embedding(tgt_input)
-        embedding_tgt_input = tf.pad(embedding_tgt_input,
-                                     [[0, 0], [1, 0], [0, 0]])[:, :-1, :]
+            # transformer_src = tf.keras.layers.Input(
+            #     shape=[None], dtype=tf.int64, name='transformer_src_input')
+            # transformer_tgt = tf.keras.layers.Input(
+            #     shape=[None], dtype=tf.int64, name='transformer_output_input')
+        with tf.name_scope("transformer"):
+            encoder_out = self.transformer.Encoder((Q, K, V),
+                                                   img_input_padding,
+                                                   training=True)
+            embedding_tgt_input = self.word_embedding(tgt_input)
+            embedding_tgt_input = tf.pad(embedding_tgt_input,
+                                         [[0, 0], [1, 0], [0, 0]])[:, :-1, :]
 
-        decoder_out = self.transformer.Decoder(
-            embedding_tgt_input,
-            encoder_out,
-            padding_matrix=img_input_padding,
-            training=True)
+            decoder_out = self.transformer.Decoder(
+                embedding_tgt_input,
+                encoder_out,
+                padding_matrix=img_input_padding,
+                training=True)
         logits = self.word_embedding.linear(decoder_out)
         # model = tf.keras.Model([img_input, tgt_input], logits)
         return logits
