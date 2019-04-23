@@ -236,7 +236,7 @@ def get_callbacks():
     return [LRschedule, TFboard, TFchechpoint]
 
 
-def make_parallel(model, gpu_count, ps_device=None):
+def make_parallel(model, gpu_count, ps_device=None, training=True):
     if gpu_count <= 1:
         return model
 
@@ -272,7 +272,7 @@ def make_parallel(model, gpu_count, ps_device=None):
                         })(x)
                     inputs.append(slice_n)
 
-                outputs = model(inputs)
+                outputs = model(inputs, training)
 
                 if not isinstance(outputs, list):
                     outputs = [outputs]
