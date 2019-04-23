@@ -83,12 +83,17 @@ class DatasetManager():
     def decode(self, string):
         return self.byter.decode(string)
 
-    def one_file_encoder(self, file_path):
+    def one_file_encoder(self, file_path, num=None):
         with tf.gfile.GFile(file_path, "r") as f:
             raw_data = f.readlines()
             re = []
-            for d in raw_data:
-                re.append(self.encode(d))
+            if num is None:
+                for d in raw_data:
+                    re.append(self.encode(d))
+            else:
+                text = raw_data[num].split(":")[1].lower().rstrip().strip()
+
+                re = self.encode(text)
             f.close()
         return re
 

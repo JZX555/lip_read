@@ -74,7 +74,7 @@ def main():
                 metrics=metrics,
                 target_tensors=tf.placeholder(
                     dtype=tf.int64, shape=[None, None]))
-        # train_model.summary()
+        train_model.summary()
         # main
         train_model.fit(
             x=train_x,
