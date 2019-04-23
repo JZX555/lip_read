@@ -136,7 +136,7 @@ class DatasetManager():
 
     def get_raw_train_dataset(self):
         files = tf.data.Dataset.list_files(
-            self.tfrecord_path + "/train_TFRecord_100*", shuffle=200)
+            self.tfrecord_path + "/train_TFRecord*", shuffle=200)
         with tf.device('/cpu:0'):
             return self.create_dataset(files)
 

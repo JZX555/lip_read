@@ -42,7 +42,9 @@ with tf.device("/cpu:0"):
         EOS_ID=hp.EOS_ID,
         # shuffle=hp.data_shuffle,
         shuffle=hp.data_shuffle,
-        max_length=hp.max_sequence_length)
+        max_length=hp.max_sequence_length,
+        tfrecord_path=
+        '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word')
 
 # train_dataset, val_dataset, test_dataset = data_manager.prepare_data()
 
@@ -217,7 +219,7 @@ def get_callbacks():
         log_dir=hp.model_summary_dir,
         # histogram_freq=10,
         write_images=True,
-        update_freq=1000)
+        update_freq=10)
 
     TFchechpoint = tf.keras.callbacks.ModelCheckpoint(hp.model_checkpoint_dir +
                                                       '/cp.ckpt')
