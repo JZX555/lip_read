@@ -10,20 +10,37 @@ class Daedalus(tf.keras.Model):
     def __init__(self, hp):
         super(Daedalus, self).__init__(name='lip_reading')
         self.hp = hp
-        self.shared_embedding = hyper_layer.EmbeddingSharedWeights(
-            hp.vocabulary_size, hp.embedding_size, hp.PAD_ID)
+        # self.shared_embedding = hyper_layer.EmbeddingSharedWeights(
+        #     hp.vocabulary_size, hp.embedding_size, hp.PAD_ID)
         # if self.embedding_size != self.num_units:
         #     self.src_dense = tf.keras.layers.Dense(
         #         self.num_units, name='src_embedding_dense')
         #     self.tgt_dense = tf.keras.layers.Dense(
         #         self.embedding_size, name='tgt_embedding_dense')
-        self.vgg16 = self.get_vgg()
+        # self.vgg16 = self.get_vgg()
         self.transformer = self.get_transofomer(hp)
         self.word_embedding = hyper_layer.EmbeddingSharedWeights(
             vocab_size=ENGLISH_BYTE_VOCAB,
             hidden_size=hp.num_units,
             pad_id=hp.PAD_ID,
             name='word_embedding')
+        self.kernel_initializer = tf.keras.initializers.get("glorot_uniform")
+        self.bias_initializer = tf.keras.initializers.get("zeros")
+        self.Q = self.add_weight(
+            name='Q',
+            shape=[25088 + self.hp.num_units, self.hp.num_units],
+            initializer=self.kernel_initializer)
+        # self.K = self.add_weight(
+        #     name='K',
+        #     shape=[25088, self.hp.num_units],
+        #     initializer=self.kernel_initializer)
+        # self.V = self.add_weight(
+        #     name='V',
+        #     shape=[12000, self.hp.num_units],
+        #     initializer=self.kernel_initializer)
+        # self.Q = tf.keras.layers.Dense(self.hp.num_units, name='fusion')
+        # self.K = tf.keras.layers.Dense(self.hp.num_units, name='K')
+        # self.V = tf.keras.layers.Dense(self.hp.num_units, name='V')
 
     def build(self, input_shape):
         self.build = True
@@ -52,9 +69,11 @@ class Daedalus(tf.keras.Model):
         return transformer
 
     def call(self, inputs, training=False):
-        if training:
+        if training is False:
+            pass
+        else:
             logits = self.train_model(inputs, training=True)
-        return logits
+            return logits
         # img_input = tf.keras.layers.Input(
         #     shape=[None, 25088], dtype=tf.float32)
         # tgt_input = tf.keras.layers.Input(
@@ -64,17 +83,25 @@ class Daedalus(tf.keras.Model):
         img_input, tgt_input = inputs
         # batch_size = self.hp.batch_size
         # Q_input_length = img_input.get_shape().as_list()[1]
-        img_input_padding = tf.to_float(tf.equal(img_input, hp.PAD_ID))[:, :, 0]
+        img_input_padding = tf.to_float(tf.equal(img_input,
+                                                 self.hp.PAD_ID))[:, :, 0]
 
-        mask_id = hp.MASK_ID
+        mask_id = self.hp.MASK_ID
         mask_words = tf.zeros_like(
             img_input[:, :, 0], dtype=tf.int32) + mask_id
         # mask_words = tf.constant(mask_id, shape=[batch_size, Q_input_length])
         mask_embedding = self.word_embedding(mask_words)
-        V = tf.concat((img_input, mask_embedding), -1)
-        V = tf.keras.layers.Dense(hp.num_units, name='fusion_V')(V)
-        K = tf.keras.layers.Dense(hp.num_units, name='K')(img_input)
-        Q = tf.keras.layers.Dense(hp.num_units, name='Q')(mask_embedding)
+        # fusion = tf.keras.layers.concatenate((img_input, mask_embedding), axis=0)
+        fusion = tf.keras.layers.concatenate([img_input, mask_embedding],
+                                             axis=-1)
+
+        # Q = self.Q(fusion)
+        # K = self.K(img_input)
+        # V = self.V(mask_embedding)
+        Q = tf.keras.backend.dot(fusion, self.Q)
+        K = Q
+        V = mask_embedding
+        # K = V
 
         # transformer_src = tf.keras.layers.Input(
         #     shape=[None], dtype=tf.int64, name='transformer_src_input')
@@ -98,8 +125,8 @@ class Daedalus(tf.keras.Model):
 
 
 # if '__name__' == '__main__':
-from hyper_and_conf import hyper_param
-hp = hyper_param.HyperParam(mode='test')
+# from hyper_and_conf import hyper_param
+# hp = hyper_param.HyperParam(mode='test')
 # model = main_model(hp)
 
 # vgg16 = get_vgg()  # step = tf.shape(vgg16_input)

@@ -1,5 +1,7 @@
 # encoding=utf-8
 # author barid
+import tensorflow as tf
+# tf.enable_eager_execution()
 import sys
 import os
 cwd = os.getcwd()
@@ -14,7 +16,7 @@ SYS_PATH = sys.path[1]
 # tgt_data_path = DATA_PATH + "/europarl-v7.fr-en.fr"
 
 import core_model_initializer as init
-import tensorflow as tf
+
 
 def main():
     config = init.backend_config()
@@ -25,13 +27,13 @@ def main():
     with tf.device("/cpu:0"):
         train_x, train_y = init.train_input()
         # val_x, val_y = init.val_input()
-        train_model = init.train_model()
+        train_model = init.daedalus
         # with strategy.scope():
         hp = init.get_hp()
         # dataset
         # step
-        train_step = init.get_train_step()
-        val_step = init.get_val_step()
+        train_step = 500
+        # val_step = init.get_val_step()
         # get train model
 
         # optimizer
@@ -44,6 +46,8 @@ def main():
         # callbacks
 
         callbacks = init.get_callbacks()
+        # import pdb; pdb.set_trace()
+        # test = train_model(train_x,training=True)
         if gpu > 0:
             # train_model = tf.keras.utils.multi_gpu_model(
             #     train_model, gpu, cpu_merge=False)
@@ -67,9 +71,9 @@ def main():
                 optimizer=optimizer,
                 loss=loss,
                 metrics=metrics,
-                target_tensors=train_y)
-
-        train_model.summary()
+                target_tensors=tf.placeholder(
+                    dtype=tf.int64, shape=[None, None]))
+        # train_model.summary()
         # main
         train_model.fit(
             x=train_x,
@@ -78,11 +82,11 @@ def main():
             steps_per_epoch=train_step,
             verbose=1,
             # validation_data=(val_x, val_y),
-            validation_steps=val_step,
+            # validation_steps=val_step,
             callbacks=callbacks,
             max_queue_size=8 * (gpu if gpu > 0 else 1),
             use_multiprocessing=True,
-            workers=gpu)
+            workers=0)
 
         train_model.save_weights("model_weights")
 

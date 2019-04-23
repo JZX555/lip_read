@@ -6,7 +6,7 @@ class HyperParam:
     def __init__(self,
                  mode,
                  gpu=0,
-                 vocab=24000,
+                 vocab=12000,
                  UNK_ID=0,
                  SOS_ID=0,
                  EOS_ID=1,

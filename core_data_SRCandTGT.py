@@ -17,7 +17,8 @@ class DatasetManager():
                  cross_val=[0.89, 0.1, 0.01],
                  byte_token='@@',
                  word_token=' ',
-                 split_token='\n'):
+                 split_token='\n',
+                 tfrecord_path=None):
         """Short summary.
 
         Args:
@@ -52,7 +53,7 @@ class DatasetManager():
             self.cpus = 12 * train_conf.get_available_gpus()
         else:
             self.cpus = 4
-        self.tfrecord_path = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
+        self.tfrecord_path = tfrecord_path
 
     def corpus_length_checker(self, data=None, re=False):
         self.short_20 = 0
@@ -107,12 +108,12 @@ class DatasetManager():
         def _parse_example(serialized_example):
             """Return inputs and targets Tensors from a serialized tf.Example."""
             data_fields = {
-                "img": tf.VarLenFeature(tf.float32),
-                "text": tf.VarLenFeature(tf.int64)
+                "text": tf.VarLenFeature(tf.int64),
+                "img": tf.VarLenFeature(tf.float32)
             }
             # import pdb;pdb.set_trace()
             parsed = tf.parse_single_example(serialized_example, data_fields)
-            img = tf.reshape(tf.sparse_tensor_to_dense(parsed["img"]), [-1, ])
+            img = tf.sparse_tensor_to_dense(parsed["img"])
             text = tf.sparse_tensor_to_dense(parsed["text"])
             return img, text
 
@@ -121,16 +122,21 @@ class DatasetManager():
                 tf.size(example[0]) <= max_length,
                 tf.size(example[1]) <= max_length)
 
-        with tf.device("/cpu:0"):
-            dataset = tf.data.TFRecordDataset(data_path)
-            dataset = dataset.map(_parse_example, num_parallel_calls=self.cpus)
-            dataset = dataset.filter(lambda x, y: _filter_max_length((
-                x, y), self.max_length))
-            return dataset
+        # with tf.device("/cpu:0"):
+        dataset = tf.data.TFRecordDataset(
+            data_path, compression_type='GZIP', buffer_size=200)
+        dataset = dataset.map(_parse_example, num_parallel_calls=self.cpus)
+        dataset = dataset.map(
+            lambda img, text: (tf.reshape(img, [-1, 25088]), text),
+            num_parallel_calls=self.cpus)
+        # dataset = dataset.filter(lambda x, y: _filter_max_length((
+        #     x, y), self.max_length))
+        # dataset = dataset.apply(tf.data.experimental.ignore_errors())
+        return dataset
 
     def get_raw_train_dataset(self):
-        files = tf.data.Dataset.list_files(self.tfrecord_path +
-                                           "/train_TFRecord_100*")
+        files = tf.data.Dataset.list_files(
+            self.tfrecord_path + "/train_TFRecord_100*", shuffle=200)
         with tf.device('/cpu:0'):
             return self.create_dataset(files)
 
@@ -154,13 +160,17 @@ class DatasetManager():
 
 # tf.enable_eager_execution()
 # DATA_PATH = '/Users/barid/Documents/workspace/batch_data/corpus_fr2eng'
-# sentenceHelper = DatasetManager([DATA_PATH + "/europarl-v7.fr-en.fr"],
+# sentenceHelper = DatasetManager([DATA_PATH + "/europarl-v7.fr-en.en"],
 #                                 [DATA_PATH + "/europarl-v7.fr-en.en"],
 #                                 batch_size=16,
 #                                 shuffle=100)
+# dataset = sentenceHelper.get_raw_train_dataset()
+# for i in range(5):
+#     import pdb; pdb.set_trace()
+#     d = dataset.make_one_shot_iterator()
+#     d = d.get_next()
 # # # # # a, b, c = sentenceHelper.prepare_data()
 # # # # a, b, c = sentenceHelper.post_process()
-# dataset = sentenceHelper.get_raw_train_dataset()
 # # for i, e in enumerate(a):
 # #     print(e[0])
 # #     print(i)
@@ -182,6 +192,3 @@ class DatasetManager():
 #         ),
 #         tf.TensorShape([None])),
 #     drop_remainder=True)
-# for i in range(5):
-#     d = dataset.make_one_shot_iterator()
-#     d = d.get_next()

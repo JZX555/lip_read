@@ -25,9 +25,9 @@ def get_available_gpus():
 
 gpu = get_available_gpus()
 TRAIN_MODE = 'large' if gpu > 0 else 'test'
-hp = hyperParam.HyperParam('large', gpu=get_available_gpus())
+hp = hyperParam.HyperParam(TRAIN_MODE, gpu=get_available_gpus())
 PAD_ID = tf.cast(hp.PAD_ID, tf.int64)
-with tf.device("/gpu:0"):
+with tf.device("/cpu:0"):
     daedalus = core_lip_main.Daedalus(hp)
     # if tf.gfile.Exists('pre_train/vgg16_pre_all'):
     #     vgg16 = tf.keras.models.load_model('pre_train/vgg16_pre_all')
@@ -77,8 +77,8 @@ def input_fn(flag="TRAIN"):
         else:
             assert ("data error")
         # repeat once in case tf.keras.fit out range error
-        dataset = dataset.apply(
-            tf.data.experimental.shuffle_and_repeat(hp.data_shuffle, 1))
+        # dataset = dataset.apply(
+        #     tf.data.experimental.shuffle_and_repeat(hp.data_shuffle, 1))
         return dataset
 
 
@@ -99,7 +99,9 @@ def pad_sample(dataset, seq2seq=False):
                 tf.TensorShape([None])),
             padding_values=(
                 (
-                    PAD_ID,  # source vectors padded on the right with src_eos_id
+                    tf.cast(
+                        hp.PAD_ID, tf.float32
+                    ),  # source vectors padded on the right with src_eos_id
                     PAD_ID
                     # target vectors padded on the right with tgt_eos_id
                 ),
@@ -115,7 +117,9 @@ def pad_sample(dataset, seq2seq=False):
                 tf.TensorShape([None]),  # target vectors of unknown size
             ),
             padding_values=(
-                PAD_ID,  # source vectors padded on the right with src_eos_id
+                tf.cast(
+                    hp.PAD_ID, tf.float64
+                ),  # source vectors padded on the right with src_eos_id
                 PAD_ID
                 # target vectors padded on the right with tgt_eos_id
             ),
@@ -146,10 +150,12 @@ def dataset_prepross_fn(src, tgt):
     return (src, tgt), tgt
 
 
-def train_input():
+def train_input(debug=False):
     with tf.device('/cpu:0'):
         dataset = input_fn('TRAIN')
         dataset = pad_sample(dataset, seq2seq=True)
+        if debug:
+            return dataset
         iterator = dataset.make_one_shot_iterator()
         x, y = iterator.get_next()
 
@@ -209,7 +215,7 @@ def get_callbacks():
                                                   hp.learning_warmup)
     TFboard = tf.keras.callbacks.TensorBoard(
         log_dir=hp.model_summary_dir,
-        histogram_freq=10,
+        # histogram_freq=10,
         write_images=True,
         update_freq=1000)
 

@@ -16,10 +16,10 @@ CUDA_VISIBLE_DEVICES = ""
 cwd = os.getcwd()
 CORPUS_PATH = cwd + '/corpus/europarl-v7.fr-en.en'
 print(CORPUS_PATH)
-# ROOT_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data'
-# TFRecord_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
-ROOT_PATH = '/home/vivalavida/massive_data/lip_reading_data/word_shard/shard_1'
-TFRecord_PATH = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word'
+ROOT_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data'
+TFRecord_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
+# ROOT_PATH = '/home/vivalavida/massive_data/lip_reading_data/word_shard/shard_1'
+# TFRecord_PATH = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word'
 image_parser = data_image_helper.data_image_helper(detector='./cascades/')
 text_parser = core_data_SRCandTGT.DatasetManager(
     [CORPUS_PATH],
@@ -146,12 +146,12 @@ def tfrecord_generater(record_dir, raw_data, index):
 
 # raw_data = word_reader(ROOT_PATH)
 # if __name__ == '__main__':
-P = 8
-t = time.time()
-video, _, word = fh.read_file(ROOT_PATH)
-worker = len(video) // P
-raw_data = list(zip(video, word))
-tfrecord_generater(TFRecord_PATH, raw_data, 1)
+# P = 8
+# t = time.time()
+# video, _, word = fh.read_file(ROOT_PATH)
+# worker = len(video) // P
+# raw_data = list(zip(video, word))
+# tfrecord_generater(TFRecord_PATH, raw_data, 1)
 # p = Pool(P)
 # i = 1
 # r = p.map_async(tfrecord_generater,(TFRecord_PATH, raw_data[i * worker:(i + 1) * worker], i))
@@ -174,30 +174,30 @@ tfrecord_generater(TFRecord_PATH, raw_data, 1)
 # print("Done!")
 # p.start()
 # p.join()
-# files = tf.data.Dataset.list_files(TFRecord_PATH + "/train_TFRecord_*")
-# dataset = tf.data.TFRecordDataset(
-#     filenames=files, compression_type='GZIP', buffer_size=BUFFER_SIZE)
+files = tf.data.Dataset.list_files(TFRecord_PATH + "/train_TFRecord_100*")
+dataset = tf.data.TFRecordDataset(
+    filenames=files, compression_type='GZIP', buffer_size=BUFFER_SIZE)
 #
 #
 # # test = dataset.make_one_shot_iterator()
 # #
 # # img,text = test.get_next()
-# def _parse_function(example_proto):
-#     # Parse the input tf.Example proto using the dictionary above.
-#     feature_description = {
-#         'text': tf.VarLenFeature(tf.int64),
-#         'img': tf.VarLenFeature(tf.float32),
-#     }
-#     parsed = tf.parse_single_example(example_proto, feature_description)
-#     img = tf.sparse_tensor_to_dense(parsed["img"])
-#     text = tf.sparse_tensor_to_dense(parsed["text"])
-#     return img, text
+def _parse_function(example_proto):
+    # Parse the input tf.Example proto using the dictionary above.
+    feature_description = {
+        'text': tf.VarLenFeature(tf.int64),
+        'img': tf.VarLenFeature(tf.float32),
+    }
+    parsed = tf.parse_single_example(example_proto, feature_description)
+    img = tf.sparse_tensor_to_dense(parsed["img"])
+    text = tf.sparse_tensor_to_dense(parsed["text"])
+    return img, text
+
+
+dataset = dataset.map(_parse_function)
 #
-#
-# dataset = dataset.map(_parse_function)
-#
-# for d in dataset:
-#     # print(d['img'].values)
-#     # print(tf.reshape(d['img'].values, [-1,224,224,3]))
-#     print(d[0])
-#     break
+for d in dataset:
+    # print(d['img'].values)
+    # print(tf.reshape(d['img'].values, [-1,224,224,3]))
+    print(d[0])
+    break

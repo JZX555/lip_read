@@ -82,8 +82,8 @@ class Prometheus(tf.keras.Model):
                     dropout=self.dropout,
                     masked_attention=True,
                     name="masked_multi_att_%d" % i))
-        self.shared_embedding = hyper_layer.EmbeddingSharedWeights(
-            self.vocabulary_size, self.embedding_size, self.pad_id)
+        # self.shared_embedding = hyper_layer.EmbeddingSharedWeights(
+        #     self.vocabulary_size, self.embedding_size, self.pad_id)
         if self.embedding_size != self.num_units:
             self.src_dense = tf.keras.layers.Dense(
                 self.num_units, name='src_embedding_dense')

@@ -13,7 +13,7 @@ from tensorflow.python.ops import state_ops
 import time
 import ctypes
 
-_cudart = ctypes.CDLL('libcudart.so')
+# _cudart = ctypes.CDLL('libcudart.so')
 
 # from tensorflow.python.ops import summary_ops_v2
 
@@ -247,37 +247,37 @@ It requires the `cudaprofile` package.
 """
 
 
-class CudaProfile(Callback):
-    def __init__(self, warmup_epochs=0, batches_to_profile=None):
-        self.warmup_epochs = warmup_epochs
-        self.batches_to_profile = batches_to_profile
-        self.enabled = False
-
-    def start(self):
-        # As shown at http://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__PROFILER.html,
-        # the return value will unconditionally be 0. This check is just in case it changes in
-        # the future.
-        ret = _cudart.cudaProfilerStart()
-        if ret != 0:
-            raise Exception("cudaProfilerStart() returned %d" % ret)
-
-    def stop(self):
-        ret = _cudart.cudaProfilerStop()
-        if ret != 0:
-            raise Exception("cudaProfilerStop() returned %d" % ret)
-
-    def set_params(self, params):
-        self.params = params
-
-    def on_epoch_begin(self, epoch, logs={}):
-        if epoch == self.warmup_epochs:
-            self.start()
-            self.enabled = True
-
-    def on_batch_end(self, batch, logs={}):
-        if self.enabled and batch >= self.batches_to_profile:
-            self.stop()
-
+# class CudaProfile(Callback):
+#     def __init__(self, warmup_epochs=0, batches_to_profile=None):
+#         self.warmup_epochs = warmup_epochs
+#         self.batches_to_profile = batches_to_profile
+#         self.enabled = False
+#
+#     def start(self):
+#         # As shown at http://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__PROFILER.html,
+#         # the return value will unconditionally be 0. This check is just in case it changes in
+#         # the future.
+#         ret = _cudart.cudaProfilerStart()
+#         if ret != 0:
+#             raise Exception("cudaProfilerStart() returned %d" % ret)
+#
+#     def stop(self):
+#         ret = _cudart.cudaProfilerStop()
+#         if ret != 0:
+#             raise Exception("cudaProfilerStop() returned %d" % ret)
+#
+#     def set_params(self, params):
+#         self.params = params
+#
+#     def on_epoch_begin(self, epoch, logs={}):
+#         if epoch == self.warmup_epochs:
+#             self.start()
+#             self.enabled = True
+#
+#     def on_batch_end(self, batch, logs={}):
+#         if self.enabled and batch >= self.batches_to_profile:
+#             self.stop()
+#
 
 class StagingAreaCallback(Callback):
     """
