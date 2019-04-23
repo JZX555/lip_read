@@ -67,7 +67,7 @@ def _bytes_feature(value):
 
 def get_file():
     files = []
-    with open(TRAIN_PATH + '/lr_train.txt', 'r') as f:
+    with open(TRAIN_PATH, 'r') as f:
         files = f.readlines()
     files = [ROOT_PATH + '/' + f.rstrip() for f in files]
     return files
