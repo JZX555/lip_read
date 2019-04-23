@@ -273,7 +273,7 @@ def make_parallel(model, gpu_count, ps_device=None, training=True):
                         })(x)
                     inputs.append(slice_n)
 
-                outputs = model(inputs, training)
+                outputs = model(inputs)
 
                 if not isinstance(outputs, list):
                     outputs = [outputs]
