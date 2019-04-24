@@ -33,7 +33,7 @@ def main():
         hp = init.get_hp()
         # dataset
         # step
-        train_step = 200
+        train_step = 1500
         # val_step = init.get_val_step()
         # get train model
 

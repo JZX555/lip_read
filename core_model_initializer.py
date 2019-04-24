@@ -82,8 +82,8 @@ def input_fn(flag="TRAIN"):
         else:
             assert ("data error")
         # repeat once in case tf.keras.fit out range error
-        # dataset = dataset.apply(
-        #     tf.data.experimental.shuffle_and_repeat(hp.data_shuffle, 1))
+        dataset = dataset.apply(
+            tf.data.experimental.shuffle_and_repeat(hp.data_shuffle, 1))
         return dataset
 
 
