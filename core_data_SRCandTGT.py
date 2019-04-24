@@ -129,7 +129,7 @@ class DatasetManager():
 
         # with tf.device("/cpu:0"):
         dataset = tf.data.TFRecordDataset(
-            data_path, compression_type='GZIP', buffer_size=200)
+            data_path, compression_type='GZIP', buffer_size=2000)
         dataset = dataset.map(_parse_example, num_parallel_calls=self.cpus)
         dataset = dataset.map(
             lambda img, text: (tf.reshape(img, [-1, 25088]), text),
