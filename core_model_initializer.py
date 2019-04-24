@@ -12,8 +12,8 @@ SYS_PATH = sys.path[1]
 src_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
 tgt_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
 # TFRECORD = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word'
-# TFRECORD = '/home/vivalavida/massive_data/lip_reading_TFRecord/sentence_TFRECORD'
-TFRECORD = '/media/lab/文档/sentence_level_lrs2/sentence_TFRECORD'
+TFRECORD = '/home/vivalavida/massive_data/lip_reading_TFRecord/sentence_TFRECORD'
+
 # TFRECORD = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
 
 
@@ -82,8 +82,8 @@ def input_fn(flag="TRAIN"):
         else:
             assert ("data error")
         # repeat once in case tf.keras.fit out range error
-        # dataset = dataset.apply(
-        #     tf.data.experimental.shuffle_and_repeat(hp.data_shuffle, 1))
+        dataset = dataset.apply(
+            tf.data.experimental.shuffle_and_repeat(hp.data_shuffle, 1))
         return dataset
 
 
