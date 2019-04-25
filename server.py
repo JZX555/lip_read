@@ -1,6 +1,7 @@
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, jsonify, request, make_response, send_from_directory, abort
 from flask_cors import CORS
+import server_text
 import time
 import json
 import os
@@ -14,6 +15,7 @@ UPLOAD_FOLDER = 'upload'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 basedir = os.path.abspath(os.path.dirname(__file__))
 ALLOWED_EXTENSIONS = set(['png', 'jpg', 'JPG', 'PNG', 'gif', 'GIF'])
+model = server_text.text_helper(mode = 'test')
 
 video = None
 cnt = 0
@@ -32,37 +34,43 @@ def upload_test():
 @app.route('/up_photo', methods=['POST', 'GET'], strict_slashes=False)
 def upload():
     global cnt, FLAG, video
-    if(not os.path.exists('./photo/')):
-        os.makedirs('./photo/')
+    if(not os.path.exists('../server/')):
+        os.makedirs('../server/')
 
     if(FLAG == False):
         FLAG = True
         cnt = 0
-        video = cv2.VideoWriter('output.mp4',cv2.VideoWriter_fourcc(*'XVID'), 20.0, (720,480))
+        video = cv2.VideoWriter('../server/output.mp4',cv2.VideoWriter_fourcc(*'XVID'), 20.0, (720,480))
 
     img = request.values['photo']
+    s = request.values['s']
     img = img.replace('data:image/png;base64,', '')
     img = base64.b64decode(img)
-    if img and video:
-        with open('./photo/p_' + cnt + '.png', 'wb') as fdecode:
+    if img and video and s == 'ok' and FLAG:
+        with open('../server/p_' + str(cnt) + '.png', 'wb') as fdecode:
             fdecode.write(img)
-            tmp = cv2.imread('./photo/' + cnt + '.png')
-            print(np.shape(tmp))
-        if(cnt < 20):
-            cnt += 1
+            tmp = cv2.imread('../server/p_' + str(cnt) + '.png')
             video.write(tmp)
-        else:
-            print("ok")
-            video.release()
-            video = None
-
-        rst = make_response(jsonify({"success": 0, "msg": "you are success"}))
+            cnt += 1
+            fdecode.close()
+        rst = make_response(jsonify({"success": 0, "flag": 0, "msg": "you are success"}))
         rst.headers['Access-Control-Allow-Origin'] = '*'
         return rst, 201
+
     else:
-        rst = make_response(jsonify({"error": 1001, "msg": "failed"}))
+        print("ok")
+        video.release()
+        video = None
+        FLAG = False
+        cnt = 0
+        word = model.get_text('../server/output.mp4')
+        msg = ''
+        for w in word:
+            msg += w
+        print(msg)
+        rst = make_response(jsonify({"success": 0, "flag": 1, "msg": msg}))
         rst.headers['Access-Control-Allow-Origin'] = '*'
-        return rst, 400
+        return rst, 201
 
     
 # show photo
