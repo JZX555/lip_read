@@ -59,14 +59,15 @@ def upload():
 
     else:
         print("ok")
-        video.release()
-        video = None
-        FLAG = False
-        cnt = 0
-        word = model.get_text('../server/output.mp4')
         msg = ''
-        for w in word:
-            msg += w
+        if(video != None):
+            video.release()
+            video = None
+            FLAG = False
+            cnt = 0
+            word = model.get_text('../server/output.mp4')
+            for w in word:
+                msg += w
         print(msg)
         rst = make_response(jsonify({"success": 0, "flag": 1, "msg": msg}))
         rst.headers['Access-Control-Allow-Origin'] = '*'
