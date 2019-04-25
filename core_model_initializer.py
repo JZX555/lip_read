@@ -225,8 +225,8 @@ def get_callbacks():
         write_images=True,
         update_freq=10)
 
-    TFchechpoint = tf.keras.callbacks.ModelCheckpoint(hp.model_checkpoint_dir +
-                                                      '/cp.ckpt')
+    TFchechpoint = tf.keras.callbacks.ModelCheckpoint(
+        hp.model_checkpoint_dir + '/cp.ckpt', save_weights_only=True)
     # BatchTime = hyper_train.BatchTiming()
     # SamplesPerSec = hyper_train.SamplesPerSec(hp.batch_size)
     # if get_available_gpus() > 0:
