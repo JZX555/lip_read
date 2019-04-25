@@ -102,7 +102,8 @@ class Daedalus(tf.keras.Model):
             # V = self.V(mask_embedding)
             Q = tf.keras.backend.dot(fusion, self.Q)
             K = Q
-            V = mask_embedding
+            # V = mask_embedding
+            V = Q
             # K = V
 
             # transformer_src = tf.keras.layers.Input(
