@@ -115,14 +115,14 @@ class HyperParam:
               num_heads=16,
               num_encoder_layers=6,
               num_decoder_layers=6,
-              max_sequence_length=250,
+              max_sequence_length=50,
               epoch=20,
               lr=2,
               clipping=5,
-              inference_length=250,
+              inference_length=50,
               data_shuffle=2000000,
               dropout=0.1,
-              learning_warmup=16000):
+              learning_warmup=3200):
 
         self.embedding_size = embedding_size
         self.batch_size = batch_size * self.gpu
