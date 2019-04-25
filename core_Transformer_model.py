@@ -23,7 +23,8 @@ class Prometheus(tf.keras.Model):
                  dropout=0.4,
                  eos_id=1,
                  pad_id=0,
-                 external_embedding=False):
+                 external_embedding=False,
+                 shared_embedding=None):
         super(Prometheus, self).__init__(name='transformer')
         self.max_seq_len = max_seq_len
         self.vocabulary_size = vocabulary_size
@@ -82,6 +83,7 @@ class Prometheus(tf.keras.Model):
                     dropout=self.dropout,
                     masked_attention=True,
                     name="masked_multi_att_%d" % i))
+        self.shared_embedding = shared_embedding
         # self.shared_embedding = hyper_layer.EmbeddingSharedWeights(
         #     self.vocabulary_size, self.embedding_size, self.pad_id)
         if self.embedding_size != self.num_units:
@@ -296,7 +298,7 @@ class Prometheus(tf.keras.Model):
                 padding_matrix=cache['src_padding'],
                 self_mask_bias=self_mask_bias,
                 cache=cache,
-                train=False)
+                training=False)
             # projection = self.projection(outputs)
             logits = self.shared_embedding.linear(outputs)
             logits = tf.squeeze(logits, axis=[1])
