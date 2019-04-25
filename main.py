@@ -33,7 +33,7 @@ def main():
         hp = init.get_hp()
         # dataset
         # step
-        train_step = 1500
+        train_step = 700
         # val_step = init.get_val_step()
         # get train model
 
@@ -72,8 +72,7 @@ def main():
                 optimizer=optimizer,
                 loss=loss,
                 metrics=metrics,
-                target_tensors=tf.placeholder(
-                    dtype=tf.int64, shape=[None, None]))
+                target_tensors=[train_y])
         train_model.summary()
         # main
         train_model.fit(
