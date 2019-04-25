@@ -53,4 +53,5 @@ class text_helper():
 if __name__ == '__main__':
     test = '~/massive_data/lip_reading_data/word_level_lrw/ABOUT/test/ABOUT_00003.mp4'
     model = text_helper()
-    model.get_text(test)
+    word = model.get_text(test)
+    print(word)
