@@ -1,6 +1,6 @@
 from werkzeug.utils import secure_filename
 from flask import Flask, render_template, jsonify, request, make_response, send_from_directory, abort
-from flask_cors import CORS
+# from flask_cors import CORS
 import server_text
 import time
 import json
@@ -10,7 +10,7 @@ import cv2
 import numpy as np
  
 app = Flask(__name__)
-CORS(app, supports_credentials=True)
+#CORS(app, supports_credentials=True)
 UPLOAD_FOLDER = 'upload'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 basedir = os.path.abspath(os.path.dirname(__file__))
