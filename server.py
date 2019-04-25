@@ -58,9 +58,11 @@ def upload():
         return rst, 201
 
     else:
+        rst_flag = 2
         print("ok")
         msg = ''
         if(video != None):
+            rst_flag = 1
             video.release()
             video = None
             FLAG = False
@@ -69,7 +71,7 @@ def upload():
             for w in word:
                 msg += w
         print(msg)
-        rst = make_response(jsonify({"success": 0, "flag": 1, "msg": msg}))
+        rst = make_response(jsonify({"success": 0, "flag": rst_flag, "msg": msg}))
         rst.headers['Access-Control-Allow-Origin'] = '*'
         return rst, 201
 
