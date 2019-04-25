@@ -25,7 +25,6 @@ class data_image_helper:
             Shape: the (min, max) size tuple of the mouth you extract from the video\n
             Size: the (high, weight) size tuple of the mouth image you save
         """
-        print(path)
         cap = cv2.VideoCapture(path)
         images = []
         mouth = None
