@@ -37,15 +37,16 @@ def upload():
     if(not os.path.exists('../server/')):
         os.makedirs('../server/')
 
-    if(FLAG == False):
-        FLAG = True
-        cnt = 0
-        video = cv2.VideoWriter('../server/output.mp4',cv2.VideoWriter_fourcc(*'XVID'), 20.0, (720,480))
-
     img = request.values['photo']
     s = request.values['s']
     img = img.replace('data:image/png;base64,', '')
     img = base64.b64decode(img)
+
+    if(FLAG == False and s == 'ok'):
+        FLAG = True
+        cnt = 0
+        video = cv2.VideoWriter('../server/output.mp4',cv2.VideoWriter_fourcc(*'XVID'), 20.0, (720,480))
+
     if img and video and s == 'ok' and FLAG:
         with open('../server/p_' + str(cnt) + '.png', 'wb') as fdecode:
             fdecode.write(img)
