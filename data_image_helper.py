@@ -29,11 +29,10 @@ class data_image_helper:
         images = []
         mouth = None
         cnt = 0
-        print(cap)
-        print(path)
-        print(cv2.CAP_PROP_FPS)
         frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
         fps = cap.get(cv2.CAP_PROP_FPS)
+        print(frames)
+        print(fps)
         v_length = frames / fps
         if (end == 0 or end >= v_length):
             end = v_length
