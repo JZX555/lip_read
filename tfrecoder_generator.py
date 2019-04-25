@@ -16,10 +16,10 @@ CUDA_VISIBLE_DEVICES = ""
 cwd = os.getcwd()
 CORPUS_PATH = cwd + '/corpus/europarl-v7.fr-en.en'
 print(CORPUS_PATH)
-ROOT_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data'
-TFRecord_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
-# ROOT_PATH = '/home/vivalavida/massive_data/lip_reading_data/word_shard/shard_1'
-# TFRecord_PATH = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word'
+# ROOT_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data'
+# TFRecord_PATH = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
+ROOT_PATH = '/home/vivalavida/massive_data/lip_reading_data/word_shard/shard_1'
+TFRecord_PATH = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word'
 image_parser = data_image_helper.data_image_helper(detector='./cascades/')
 text_parser = core_data_SRCandTGT.DatasetManager(
     [CORPUS_PATH],

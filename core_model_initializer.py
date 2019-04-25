@@ -12,8 +12,9 @@ SYS_PATH = sys.path[1]
 src_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
 tgt_data_path = [DATA_PATH + "/corpus/europarl-v7.fr-en.en"]
 # TFRECORD = '/home/vivalavida/massive_data/lip_reading_TFRecord/tfrecord_word'
+TFRECORD = '/home/vivalavida/massive_data/lip_reading_TFRecord/sentence_TFRECORD'
 
-TFRECORD = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
+# TFRECORD = '/Users/barid/Documents/workspace/batch_data/lip_data_TFRecord'
 
 
 def get_available_cpus():
@@ -81,8 +82,8 @@ def input_fn(flag="TRAIN"):
         else:
             assert ("data error")
         # repeat once in case tf.keras.fit out range error
-        # dataset = dataset.apply(
-        #     tf.data.experimental.shuffle_and_repeat(hp.data_shuffle, 1))
+        dataset = dataset.apply(
+            tf.data.experimental.shuffle_and_repeat(hp.data_shuffle, 1))
         return dataset
 
 
@@ -200,10 +201,10 @@ def test_model():
 
 def get_metrics():
     # evaluation metrics
-    # bleu = hyper_train.Approx_BLEU_Metrics(eos_id=hp.EOS_ID)
+    bleu = hyper_train.Approx_BLEU_Metrics(eos_id=hp.EOS_ID)
     accuracy = hyper_train.Padded_Accuracy(hp.PAD_ID)
     accuracy_topk = hyper_train.Padded_Accuracy_topk(k=10, pad_id=hp.PAD_ID)
-    return [accuracy, accuracy_topk]
+    return [bleu, accuracy, accuracy_topk]
 
 
 def get_optimizer():
