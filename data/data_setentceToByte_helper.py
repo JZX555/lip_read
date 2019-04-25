@@ -158,11 +158,11 @@ class Subtokenizer(object):
             # Note that list(subtokens) converts subtokens to a python list, but the
             # items remain as np.int32. This converts both the array and its items.
             subtokens = subtokens.tolist()
-
-        if not subtokens:
+        
+        if not np.all(subtokens):
             return ""
 
-        assert isinstance(subtokens, list) and isinstance(subtokens[0], int), (
+        assert not (isinstance(subtokens, list) and isinstance(subtokens[0], int)), (
             "Subtokens argument passed into decode() must be a list of integers."
         )
 

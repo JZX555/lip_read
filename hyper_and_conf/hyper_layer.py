@@ -267,13 +267,13 @@ class Multi_Head_Attention(tf.keras.layers.Layer):
         if K_V is None:
             K_V = (Q, Q)
         K, V = K_V
-        if cache is not None:
+        #if cache is not None:
             # Combine cached keys and values with new keys and values.
-            K = tf.concat([cache["K"], K], axis=1)
-            V = tf.concat([cache["V"], V], axis=1)
+            # K = tf.concat([cache["K"], K], axis=1)
+            # V = tf.concat([cache["V"], V], axis=1)
             # Update cache
-            cache["K"] = K
-            cache["V"] = V
+            # cache["K"] = K
+            # cache["V"] = V
         # Q = self.ln(Q)
         # K = self.ln(K)
         # V = self.ln(V)
