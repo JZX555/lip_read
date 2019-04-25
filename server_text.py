@@ -20,8 +20,10 @@ def get_vgg():
     return vgg16
 
 class text_helper():
-    def __init__(self, corpus_path = CORPUS_PATH):
-        self.hp = hyper_param.HyperParam(mode = 'test')
+    def __init__(self, 
+                 corpus_path = CORPUS_PATH,
+                 mode = 'test'):
+        self.hp = hyper_param.HyperParam(mode = mode)
 
         self.text_parser = core_data_SRCandTGT.DatasetManager(
             [corpus_path],
